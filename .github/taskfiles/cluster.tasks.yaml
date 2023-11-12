@@ -1,0 +1,81 @@
+---
+version: "3"
+
+vars:
+  CLUSTER: '{{.CLUSTER | default "kube-prod"}}'
+  APPLY: '{{.APPLY | default "false"}}'
+
+tasks:
+  switch:
+    aliases: [ctx]
+    cmds:
+      - talosctl config context {{.CLUSTER}}
+      - |
+        sed -i "s/current-context: admin@.*/current-context: admin@{{.CLUSTER}}/g" ~/.kube/config || true
+
+  init-full:
+    aliases: [init]
+    vars:
+      APPLY: "true"
+    cmds:
+      - task: switch
+      - task: :flux:install
+      - task: init-config
+        vars:
+          APPLY: "true"
+      - task: init-config-repo
+        vars:
+          APPLY: "true"
+
+  init-config:
+    aliases: [initcfg]
+    cmds:
+      - task: decrypt-sops
+        vars:
+          ENV_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/config/vars.sops.env"
+          NAME: '{{ .NAME | default "vars" }}'
+          APPLY: '{{ or .APPLY (fail "Missing APPLY environment variable!") }}'
+      - task: decrypt-sops
+        vars:
+          ENV_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/config/secrets.sops.env"
+          NAME: '{{ .NAME | default "secrets" }}'
+          APPLY: '{{ or .APPLY (fail "Missing APPLY environment variable!") }}'
+
+  decrypt-sops:
+    vars:
+      ENV_FILE: '{{ or .ENV_FILE (fail "Missing FILE environment variable!") }}'
+      NAME: '{{ or .NAME (fail "Missing NAME environment variable!") }}'
+      APPLY: '{{ or .APPLY (fail "Missing APPLY environment variable!") }}'
+    cmds:
+      - sops exec-file {{.ENV_FILE}} "SOPS_FILE={} task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml cluster:generate-kustomization APPLY={{.APPLY}} NAME={{.NAME}}"
+
+  generate-kustomization:
+    vars:
+      KUSTOMIZATION_TEMPLATE: "{{.ROOT_DIR}}/kubernetes/bootstrap/config/secret-generator-kustomization.tmpl.yaml"
+      SOPS_DIR:
+        sh: echo {{.SOPS_FILE}} | xargs dirname
+    cmds:
+      - CLUSTER={{.CLUSTER}} NAME={{.NAME}} FILE=$(echo {{.SOPS_FILE}} | xargs basename) envsubst < <(cat {{.KUSTOMIZATION_TEMPLATE}}) > {{.SOPS_DIR}}/kustomization.yaml
+      - task: apply-kustomization
+        vars:
+          SOPS_DIR: '{{ or .SOPS_DIR (fail "Missing SOPS_DIR environment variable!") }}'
+          APPLY: '{{ or .APPLY (fail "Missing APPLY environment variable!") }}'
+
+  apply-kustomization:
+    cmds:
+      - if [[ {{.APPLY}} = "true" ]];
+        then kubectl apply -k {{.SOPS_DIR}};
+        else kubectl kustomize {{.SOPS_DIR}};
+        fi
+
+  init-config-repo:
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/flux"
+    vars:
+      APPLY: '{{ or .APPLY (fail "Missing APPLY environment variable!") }}'
+    preconditions:
+      - sh: '[ {{.APPLY}} = "true" ]'
+        msg: "Apply isn't enabled, will not apply!"
+    cmds:
+      - sops --decrypt secrets-age.sops.yaml | kubectl apply -f -
+      - sops --decrypt secrets-ssh.sops.yaml | kubectl apply -f -
+      - kubectl apply --server-side -f flux-repo.yaml

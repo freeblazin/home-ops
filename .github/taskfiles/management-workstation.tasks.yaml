@@ -1,0 +1,63 @@
+---
+version: "3"
+
+tasks:
+  init-full:
+    desc: Fully initialize management workstation apps and configurations from the ground up
+    prompt: This will build and configure the management workstation environment... Do you want to continue?
+    cmds:
+      - task: install-brew
+      - task: brew-management-apps
+      - task: configure-shell
+      - task: install-talosctl
+      - pre-commit install
+
+  install-brew:
+    desc: Install Homebrew app
+    cmds:
+      - /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+  brew-management-apps:
+    desc: Initialize management workstation dependencies with Brew
+    prompt: This will install all the dependancy apps... Do you want to continue?
+    preconditions:
+      - sh: command -v brew
+        msg: |
+          Homebrew is not installed. Run task init-brew first.
+    vars:
+      DEPS: >-
+        jq
+        yq
+        pre-commit
+        sops
+        age
+        yamllint
+        prettier
+        markdownlint-cli
+        fluxcd/tap/flux
+        starship
+        lsd
+    cmds:
+      - brew install {{.DEPS}} {{.CLI_ARGS}}
+
+  # Install Kubernetes Client (kubectl)
+  install-kubectl:
+    cmds:
+      - curl -L https://dl.k8s.io/release/$KUBERNETES_VERSION/bin/linux/amd64/kubectl -o kubectl
+      - sudo mv -f kubectl /usr/local/bin/kubectl
+      - sudo chmod +x /usr/local/bin/kubectl
+      - rm -f kubectl
+
+  # Install Talos Client (talosctl)
+  install-talosctl:
+    cmds:
+      - curl -L https://github.com/siderolabs/talos/releases/download/$TALOS_VERSION/talosctl-linux-amd64 -o talosctl
+      - sudo mv -f talosctl /usr/local/bin/talosctl
+      - sudo chmod +x /usr/local/bin/talosctl
+      - rm -f talosctl
+
+  # Tasks to configure the shell environment of the management workstation
+  configure-shell:
+    cmds:
+      # Bash Shell Completion
+      - brew completions link

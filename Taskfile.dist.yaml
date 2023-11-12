@@ -1,0 +1,20 @@
+---
+version: "3"
+
+vars:
+  PROJECT_DIR:
+    sh: git rev-parse --show-toplevel
+  SECRETS_DIR: "{{.PROJECT_DIR}}/secrets"
+
+includes:
+  management: .github/taskfiles/management-workstation.tasks.yaml
+  talos: .github/taskfiles/talos.tasks.yaml
+  cluster: .github/taskfiles/cluster.tasks.yaml
+  flux: .github/taskfiles/flux.tasks.yaml
+  lint: .github/taskfiles/lint.tasks.yaml
+  format: .github/taskfiles/format.tasks.yaml
+  precommit: .github/taskfiles/pre-commit.tasks.yaml
+
+default:
+  silent: true
+  cmds: ["task -l"]

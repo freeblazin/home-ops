@@ -1,0 +1,23 @@
+---
+creation_rules:
+  # Talos secret files
+  - path_regex: kubernetes\/.*tal.*\.sops\.ya?ml
+    input_type: yaml
+    unencrypted_regex: "^(kind)$"
+    key_groups:
+      - age:
+          - age1skatly42g7vng3twta22kdlvzg98p3p5zk7rzn285pncxkzzu3usvp7gvh
+  # Talos cluster environment files
+  - path_regex: kubernetes\/.*\.sops\.env
+    input_type: env
+    unencrypted_regex: "^(TALOS_VERSION|KUBERNETES_VERSION)$"
+    key_groups:
+      - age:
+          - age1skatly42g7vng3twta22kdlvzg98p3p5zk7rzn285pncxkzzu3usvp7gvh
+  # Kubernetes manafest files
+  - path_regex: kubernetes\/.*\.ya?ml
+    input_type: yaml
+    encrypted_regex: ^(data|stringData)$
+    key_groups:
+      - age:
+          - age1skatly42g7vng3twta22kdlvzg98p3p5zk7rzn285pncxkzzu3usvp7gvh

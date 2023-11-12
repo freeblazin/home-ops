@@ -1,0 +1,393 @@
+---
+version: "3"
+
+vars:
+  CLUSTER: '{{.CLUSTER | default "kube-prod"}}'
+  APPLY: '{{.APPLY | default "false"}}'
+  TASK_ITEMS:
+    sh: '(task -a | grep "talos:" | cut -d: -f2)'
+  CONTROL_NODES:
+    sh: yq '(.nodes[] | select(.controlPlane == "true") | .hostname)' {{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos/talconfig.yaml
+  WORKER_NODES:
+    sh: yq '(.nodes[] | select(.controlPlane != "true") | .hostname)' {{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos/talconfig.yaml
+
+tasks:
+  # Dependancy Kubernetes & Talos Clients - Validates kubectl and talosctl are installed and version matches cluster
+  require-clients:
+    silent: true
+    vars:
+      TALOSCTL_VERSION:
+        sh: talosctl version --client | grep 'Tag:' | grep -oP 'v[0-9]+.[0-9]+.[0-9]+' || echo 0
+      KUBECTL_VERSION:
+        sh: kubectl version --client | grep 'Client Version:' | grep -oP 'v[0-9]+.[0-9]+.[0-9]+' || echo 0
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    status:
+      - if [[ "{{.TALOSCTL_VERSION}}" == "$TALOS_VERSION" ]]; then exit 0; else exit 1; fi
+      - if [[ "{{.KUBECTL_VERSION}}" == "$KUBERNETES_VERSION" ]]; then exit 0; else exit 1; fi
+    cmds:
+      # Warn user and exit task sequence
+      - if [[ "{{.TALOSCTL_VERSION}}" != "$TALOS_VERSION" ]];
+        then echo -e "Talos Client version mismatch\n
+        Installed - {{.TALOSCTL_VERSION}}\n
+        Required - $TALOS_VERSION\n
+        Install the matching client version with - task management:install-talosctl";
+        fi
+      - if [[ "{{.KUBECTL_VERSION}}" != "$KUBERNETES_VERSION" ]];
+        then echo -e "Kubernetes Client version mismatch\n
+        Installed - {{.KUBECTL_VERSION}}\n
+        Required - $KUBERNETES_VERSION\n
+        Install the matching client version with - task management:install-kubectl";
+        fi
+      - exit 1
+
+  init-full:
+    aliases: [init]
+    desc: Deploy Talos cluster from the ground up
+    prompt: This will build, configure, and deploy the Talos configurations for {{.CLUSTER}} to vCenter... Do you want to continue?
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    cmds:
+      - task: deploy-cluster
+      - task: bootstrap
+      - task: configfile-talos
+      - task: configfile-kube
+      - task: enable-vmtools
+
+  deploy-cluster:
+    desc: Deploy Talos cluster to vCenter
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    deps: [require-clients, genconfig]
+    cmds:
+      # Create vCenter Content Library
+      - task: create-content-library
+
+      # Upload Talos OVA to vCenter Content Library
+      - task: upload-talos-ova
+
+      # Deploy Control Plane Node VM's
+      - for: {var: CONTROL_NODES}
+        task: deploy-talos-ova
+        vars:
+          HOSTNAME: "{{.ITEM}}"
+
+      # Deploy Worker Node VM's
+      - for: {var: WORKER_NODES}
+        task: deploy-talos-ova
+        vars:
+          HOSTNAME: "{{.ITEM}}"
+
+      # Configure Control Plane Node VM's
+      - for: {var: CONTROL_NODES}
+        task: update-vm-config
+        vars:
+          HOSTNAME: "{{.ITEM}}"
+          CPU: $CONFIG_CONTROL_CPU
+          MEM: $CONFIG_CONTROL_MEM
+          DISK_SIZE: $CONFIG_CONTROL_DISK
+
+      # Configure Worker Node VM's
+      - for: {var: WORKER_NODES}
+        task: update-vm-config
+        vars:
+          HOSTNAME: "{{.ITEM}}"
+          CPU: $CONFIG_WORKER_CPU
+          MEM: $CONFIG_WORKER_MEM
+          DISK_SIZE: $CONFIG_WORKER_DISK
+
+      # Power On Control Plane Node VM's
+      - for: {var: CONTROL_NODES}
+        task: poweron-vm
+        vars:
+          HOSTNAME: "{{.ITEM}}"
+
+      # Power On Worker Node VM's
+      - for: {var: WORKER_NODES}
+        task: poweron-vm
+        vars:
+          HOSTNAME: "{{.ITEM}}"
+
+  destroy-cluster:
+    desc: Destroy an existing Talos cluster deployed with this Taskfile
+    prompt: This will forcefully destroy the Talos {{.CLUSTER}} and delete VMs from vCenter... Do you want to continue?
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    cmds:
+      # Destroy Worker Node VM's
+      - for: {var: WORKER_NODES}
+        task: destroy-vm
+        vars:
+          HOSTNAME: "{{.ITEM}}"
+
+      # Destroy Control Plane Node VM's
+      - for: {var: CONTROL_NODES}
+        task: destroy-vm
+        vars:
+          HOSTNAME: "{{.ITEM}}"
+
+      # Remove Talos cluster configurations
+      - rm -rf clusterconfig 2> /dev/null
+
+  # Generate Talos secrets with Talhelper
+  gensecrets:
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    status:
+      - test -f talsecret.sops.yaml
+    cmds:
+      # Generate talos secrets using Talhelper
+      - talhelper gensecret > talsecret.sops.yaml
+
+      # Encrypt secrets using SOPS
+      - sops -e -i talsecret.sops.yaml
+
+  # Generate Talos configurations with Talhelper
+  genconfig:
+    desc: Generate cluster configuration
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    deps: [gensecrets]
+    status:
+      - test -f clusterconfig/talosconfig
+    cmds:
+      # Generate talos configs using Talhelper
+      - talhelper genconfig
+
+  # Create new Talos configurations with Talhelper
+  update-config:
+    desc: Generate new cluster configurations
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    deps: [gensecrets]
+    status:
+      - test -f clusterconfig/talosconfig
+    cmds:
+      # Remove existing cluster configurations
+      - rm -rf clusterconfig/* 2> /dev/null
+
+      # Generate new talos configs using Talhelper
+      - talhelper genconfig
+
+  update-secrets:
+    desc: Generate a new replacement Talos cluster secrets file
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    cmds:
+      # Remove existing secrets
+      - rm -rf talsecret.sops.yaml 2> /dev/null
+
+      # Generate new talos secrets using Talhelper
+      - task: gensecrets
+
+  # Create vCenter Content library
+  # https://github.com/vmware/govmomi/blob/main/govc/USAGE.md#librarycreate
+  create-content-library:
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    status:
+      - if [[ -n $(govc library.ls /$GOVC_LIBRARY) ]]; then exit 0; else exit 1; fi
+    cmds:
+      - echo Creating Content Library...
+      - govc library.create $GOVC_LIBRARY
+
+  # Deploy talos ova from vCenter Content library
+  # https://github.com/vmware/govmomi/blob/main/govc/USAGE.md#libraryimport
+  upload-talos-ova:
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    status:
+      - if [[ -n $(govc library.ls /$GOVC_LIBRARY/talos-$TALOS_VERSION) ]]; then exit 0; else exit 1; fi
+    cmds:
+      - echo Uploading Talos OVA...
+      - govc library.import -n talos-$TALOS_VERSION $GOVC_LIBRARY "https://github.com/siderolabs/talos/releases/download/$TALOS_VERSION/vmware-amd64.ova"
+
+  # Deploy talos ova from vCenter Content library
+  # https://github.com/vmware/govmomi/blob/main/govc/USAGE.md#librarydeploy
+  deploy-talos-ova:
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    status:
+      - if [[ -n $(govc find -type m -name "{{.HOSTNAME}}") ]]; then exit 0; else exit 1; fi
+    cmds:
+      - echo Deploying virtual machine {{.HOSTNAME}}...
+      - govc library.deploy -options deploy.options.json $GOVC_LIBRARY/talos-$TALOS_VERSION {{.HOSTNAME}}
+
+  # Update VM configurations
+  # https://github.com/vmware/govmomi/blob/main/govc/USAGE.md#vmchange
+  # https://github.com/vmware/govmomi/blob/main/govc/USAGE.md#vmdiskchange
+  update-vm-config:
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    cmds:
+      - echo Updating VM configurations for {{.HOSTNAME}}...
+      - govc vm.change -e "guestinfo.talos.config=$(cat clusterconfig/$CLUSTER_NAME-{{.HOSTNAME}}.yaml | base64)" -e "disk.enableUUID=1" -vm {{.HOSTNAME}}
+      - govc vm.change -c {{.CPU}} -m {{.MEM}} -vm {{.HOSTNAME}}
+      - govc vm.disk.change -vm {{.HOSTNAME}} -disk.name disk-1000-0 -size {{.DISK_SIZE}}
+
+  # Power on VM
+  # https://github.com/vmware/govmomi/blob/main/govc/USAGE.md#vmpower
+  poweron-vm:
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    cmds:
+      - echo Powering On {{.HOSTNAME}}...
+      - govc vm.power -on {{.HOSTNAME}}
+
+  # Power off VM
+  # https://github.com/vmware/govmomi/blob/main/govc/USAGE.md#vmpower
+  poweroff-vm:
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    cmds:
+      - echo Powering Off {{.HOSTNAME}}...
+      - govc vm.power -off {{.HOSTNAME}}
+
+  # Power off VM and delete from disk
+  # https://github.com/vmware/govmomi/blob/main/govc/USAGE.md#vmdestroy
+  destroy-vm:
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    cmds:
+      - echo Deleting {{.HOSTNAME}}...
+      - govc vm.destroy {{.HOSTNAME}}
+
+  # Bootstrap Talos Cluster
+  # https://www.talos.dev/v1.5/talos-guides/install/virtualized-platforms/vmware/#bootstrap-cluster
+  # https://www.talos.dev/v1.5/reference/cli/#talosctl-bootstrap
+  bootstrap:
+    desc: Bootstrap Talos cluster
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    deps: [require-clients]
+    cmds:
+      - echo Bootstrapping $CLUSTER_NAME...
+      - until talosctl --talosconfig ./clusterconfig/talosconfig bootstrap -e $IP_CONTROL_01 -n $IP_CONTROL_01 ; do sleep 5; done
+
+  # Configure talosctl contexts and config file
+  # https://www.talos.dev/v1.5/talos-guides/install/virtualized-platforms/vmware/#retrieve-the-kubeconfig
+  configfile-talos:
+    desc: Generate Talosctl configuration
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    deps: [require-clients]
+    cmds:
+      # Set Endpoint and Node configurations
+      - talosctl --talosconfig ./clusterconfig/talosconfig config endpoint $IP_CONTROL_01 $IP_CONTROL_02 $IP_CONTROL_03
+      - talosctl --talosconfig ./clusterconfig/talosconfig config node $IP_CONTROL_01
+
+      # Copy Talos Configuration file to home directory. If already exists, call task to merge config file.
+      - if [ -f ~/.talos/config ];
+        then cp ./clusterconfig/talosconfig ~/.talos/config;
+        else task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml talos:configfile-talos-merge;
+        fi
+
+  configfile-talos-merge:
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    deps: [require-clients]
+    cmds:
+      - if [ talosctl config contexts | grep kube-prod1 ];
+        then task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml talos:configfile-talos-overwrite;
+        else talosctl config merge ./clusterconfig/talosconfig;
+        fi
+
+  configfile-talos-overwrite:
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    deps: [require-clients]
+    cmds:
+      - talosctl config add dummy
+      - talosctl config context dummy
+      - talosctl config remove {{.CLUSTER}} -y
+      - talosctl config merge ./clusterconfig/talosconfig
+      - talosctl config remove dummy -y
+
+  configfile-kube:
+    desc: Generate Kubectl client configuration
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    deps: [require-clients]
+    cmds:
+      - talosctl --talosconfig ./clusterconfig/talosconfig kubeconfig ~/.kube/config
+      - |
+        sed -i "s/current-context: admin@.*/current-context: admin@{{.CLUSTER}}/g" ~/.kube/config || true
+
+  # Generate secret for vmware tools daemonset authentication
+  # https://www.talos.dev/v1.5/talos-guides/install/virtualized-platforms/vmware/#configure-talos-vmtoolsd
+  enable-vmtools:
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/talos"
+    dotenv: ["{{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env"]
+    deps: [require-clients, check-health]
+    status:
+      - kubectl -n kube-system get secret talos-vmtoolsd-config
+    cmds:
+      - talosctl --talosconfig ./clusterconfig/talosconfig -n $IP_CONTROL_01 config new vmtoolsd-secret.yaml --roles os:admin
+      - kubectl -n kube-system create secret generic talos-vmtoolsd-config --from-file=talosconfig=./vmtoolsd-secret.yaml
+      - rm -f vmtoolsd-secret.yaml
+
+  check-health:
+    cmds:
+      - talosctl health
+    interactive: true
+
+  gen-hostnames:
+    vars:
+      CP_HOSTNAMES:
+        sh: for i in $(seq 1 $WORKER_COUNT); do echo "$CLUSTER_NAME-control-plane-$i"; done
+    cmds:
+      - echo "{{.CP_HOSTNAMES}}"
+
+  # Default Talos Task Runner to inject decrypted env variables into Talos tasks
+  default:
+    silent: true
+    vars:
+      CLI_ARGS: '{{.CLI_ARGS | default "list"}}'
+      CLUSTER: '{{ or .CLUSTER (fail "\n\nERROR ->  Missing CLUSTER environment variable!") }}'
+    cmds:
+      - if [[ "{{.TASK_ITEMS}}" =~ \b{{.CLI_ARGS}}\b ]];
+        then task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml talos:inject-env CLUSTER={{.CLUSTER}};
+        fi
+      - defer: {task: cleanup-env}
+      - if [[ "{{.TASK_ITEMS}}" =~ \b{{.CLI_ARGS}}\b ]];
+        then CLUSTER={{.CLUSTER}} task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml talos:{{.CLI_ARGS}};
+        else task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml talos:list-tasks;
+        fi
+
+  # List task usage and available task names
+  list-tasks:
+    silent: true
+    cmds:
+      - echo
+      - echo "Usage":" task talos -- <TASK>"
+      - echo
+      - echo "Available Tasks:"
+      - for: {var: TASK_ITEMS}
+        cmd: echo -- {{.ITEM}}
+
+  # Inject encrypted variables to a temp .env file for consumption by taskfile dotenv
+  inject-env:
+    desc: Extract encrypted variables from SOPS config file to be used as .env for tasks
+    vars:
+      CLUSTER: '{{ or .CLUSTER (fail "\n\nERROR ->  Missing CLUSTER environment variable!") }}'
+    status:
+      - test -f {{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env
+    cmds:
+      - sops exec-file "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/config/vars.sops.env" 'op inject -i {}' >> {{.SECRETS_DIR}}/{{.CLUSTER}}.vars.unencrypted.env
+
+  # Injection of decrypted secrets directly into talos task
+  inject-task:
+    vars:
+      CLI_ARGS: '{{.CLI_ARGS | default "list"}}'
+      CLUSTER: '{{ or .CLUSTER (fail "\n\nERROR ->  Missing CLUSTER environment variable!") }}'
+    cmds:
+      - sops exec-file "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/config/vars.sops.env" 'op run --env-file={} -- task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml talos:{{.CLI_ARGS}} CLUSTER={{.CLUSTER}}'
+
+  # Cleanup unencrypted temp .env files
+  cleanup-env:
+    desc: Extract encrypted variables from SOPS config file to be used as .env for tasks
+    preconditions:
+      - sh: "[ -f {{.SECRETS_DIR}}/*.vars.unencrypted.env ]"
+        msg: "Nothing to cleanup"
+    cmds:
+      # Remove all unencrypted temp .env files from secrets directory
+      - rm -rf {{.SECRETS_DIR}}/*.vars.unencrypted.env

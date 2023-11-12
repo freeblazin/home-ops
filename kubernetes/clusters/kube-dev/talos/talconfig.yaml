@@ -1,0 +1,91 @@
+---
+clusterName: ${CLUSTER_NAME}
+talosVersion: ${TALOS_VERSION}
+kubernetesVersion: ${KUBERNETES_VERSION}
+endpoint: "https://${DNS_CONTROLPLANE_FQDN}:6443"
+domain: ${DNS_CLUSTER_DN}
+
+allowSchedulingOnMasters: true
+
+additionalMachineCertSans:
+  - ${IP_CLUSTER_VIP}
+  - ${DNS_CONTROLPLANE_FQDN}
+
+additionalApiServerCertSans:
+  - ${IP_CLUSTER_VIP}
+  - ${DNS_CONTROLPLANE_FQDN}
+
+clusterPodNets:
+  - ${IP_POD_CIDR_V4}
+
+clusterSvcNets:
+  - ${IP_SVC_CIDR_V4}
+
+nodes:
+  - hostname: kube-dev-control-01
+    ipAddress: ${IP_CONTROL_01}
+    installDisk: /dev/sda
+    controlPlane: true
+    networkInterfaces:
+      - interface: eth0
+        addresses:
+          - ${IP_CONTROL_01}/26
+
+  - hostname: kube-dev-control-02
+    ipAddress: ${IP_CONTROL_02}
+    installDisk: /dev/sda
+    controlPlane: true
+    networkInterfaces:
+      - interface: eth0
+        addresses:
+          - ${IP_CONTROL_02}/26
+
+  - hostname: kube-dev-control-03
+    ipAddress: ${IP_CONTROL_03}
+    installDisk: /dev/sda
+    controlPlane: true
+    networkInterfaces:
+      - interface: eth0
+        addresses:
+          - ${IP_CONTROL_03}/26
+
+  - hostname: kube-dev-worker-01
+    ipAddress: ${IP_WORKER01}
+    controlPlane: false
+    installDisk: /dev/sda
+    networkInterfaces:
+      - interface: eth0
+        addresses:
+          - ${IP_WORKER01}/26
+
+patches:
+  - |-
+    - op: add
+      path: /cluster/extraManifests
+      value:
+        - "https://raw.githubusercontent.com/mologie/talos-vmtoolsd/master/deploy/unstable.yaml"
+    - op: add
+      path: /machine/kubelet/extraArgs
+      value:
+        feature-gates: GracefulNodeShutdown=true
+    - op: add
+      path: /machine/network/nameservers
+      value:
+        - ${IP_HOME_DNS_1}
+        - ${IP_HOME_DNS_2}
+    - op: add
+      path: /machine/network/interfaces/0/mtu
+      value: 1500
+    - op: add
+      path: /machine/network/interfaces/0/routes
+      value:
+        - network: 0.0.0.0/0
+          gateway: ${IP_GATEWAY_K8S_VLAN}
+
+controlPlane:
+  patches:
+    - |-
+      - op: add
+        path: /machine/network/interfaces/0/vip
+        value:
+          ip: ${IP_CLUSTER_VIP}

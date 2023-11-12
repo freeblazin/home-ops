@@ -1,0 +1,9 @@
+# Repo Folders
+secrets/
+**/clusterconfig/
+
+# SOPS Temp Files
+**/*.sops_tmp.*
+
+# Kubernetes
+kubeconfig
