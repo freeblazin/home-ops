@@ -10,3 +10,12 @@ tasks:
     aliases: [ga, fga, getall]
     cmds:
       - viddy -n1 flux get all -A || watch -n1 flux get all -A
+
+  cantWait:
+    aliases: [cw]
+    vars:
+      NS: '{{ .NS | default "flux-system" }}'
+      KS: '{{ .KS | or .KS (fail "Missing `KS` environment variable!") }}'
+    cmds:
+      - kubectl patch ks -n {{.NS}} {{.KS}} --type merge -p '{"spec":{"dependsOn":[]}}'
+      - kubectl patch ks -n {{.NS}} {{.KS}} --type merge -p '{"spec":{"wait":false}}'

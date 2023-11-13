@@ -2,16 +2,16 @@
 version: "3"
 
 vars:
-  CLUSTER: '{{.CLUSTER | default "kube-prod"}}'
+  C: '{{.C | default "kube-prod"}}'
   APPLY: '{{.APPLY | default "false"}}'
 
 tasks:
   switch:
     aliases: [ctx]
     cmds:
-      - talosctl config context {{.CLUSTER}}
+      - talosctl config context {{.C}}
       - |
-        sed -i "s/current-context: admin@.*/current-context: admin@{{.CLUSTER}}/g" ~/.kube/config || true
+        sed -i "s/current-context: admin@.*/current-context: admin@{{.C}}/g" ~/.kube/config || true
 
   init-full:
     aliases: [init]
@@ -32,12 +32,12 @@ tasks:
     cmds:
       - task: decrypt-sops
         vars:
-          ENV_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/config/vars.sops.env"
+          ENV_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/config/vars.sops.env"
           NAME: '{{ .NAME | default "vars" }}'
           APPLY: '{{ or .APPLY (fail "Missing APPLY environment variable!") }}'
       - task: decrypt-sops
         vars:
-          ENV_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/config/secrets.sops.env"
+          ENV_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/config/secrets.sops.env"
           NAME: '{{ .NAME | default "secrets" }}'
           APPLY: '{{ or .APPLY (fail "Missing APPLY environment variable!") }}'
 
@@ -55,7 +55,7 @@ tasks:
       SOPS_DIR:
         sh: echo {{.SOPS_FILE}} | xargs dirname
     cmds:
-      - CLUSTER={{.CLUSTER}} NAME={{.NAME}} FILE=$(echo {{.SOPS_FILE}} | xargs basename) envsubst < <(cat {{.KUSTOMIZATION_TEMPLATE}}) > {{.SOPS_DIR}}/kustomization.yaml
+      - CLUSTER={{.C}} NAME={{.NAME}} FILE=$(echo {{.SOPS_FILE}} | xargs basename) envsubst < <(cat {{.KUSTOMIZATION_TEMPLATE}}) > {{.SOPS_DIR}}/kustomization.yaml
       - task: apply-kustomization
         vars:
           SOPS_DIR: '{{ or .SOPS_DIR (fail "Missing SOPS_DIR environment variable!") }}'
@@ -69,7 +69,7 @@ tasks:
         fi
 
   init-config-repo:
-    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.CLUSTER}}/flux"
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/flux"
     vars:
       APPLY: '{{ or .APPLY (fail "Missing APPLY environment variable!") }}'
     preconditions:

@@ -7,3 +7,6 @@ secrets/
 
 # Kubernetes
 kubeconfig
+
+# Cilium Chart
+*/cilium/app/bootstrap-install/charts

@@ -10,6 +10,7 @@ includes:
   management: .github/taskfiles/management-workstation.tasks.yaml
   talos: .github/taskfiles/talos.tasks.yaml
   cluster: .github/taskfiles/cluster.tasks.yaml
+  k8s: .github/taskfiles/k8s.tasks.yaml
   flux: .github/taskfiles/flux.tasks.yaml
   lint: .github/taskfiles/lint.tasks.yaml
   format: .github/taskfiles/format.tasks.yaml

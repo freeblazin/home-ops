@@ -31,6 +31,7 @@ tasks:
         pre-commit
         sops
         age
+        helm
         yamllint
         prettier
         markdownlint-cli

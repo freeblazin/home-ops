@@ -1,0 +1,227 @@
+---
+# General Kubernetes admin tasks
+version: "3"
+
+vars:
+  # C: '{{ .C | default "admin@kube-prod" }}'
+  TIMENOW:
+    sh: date +%Y%m%d-%H%M%S
+
+tasks:
+  race-ns-pod-security:
+    aliases: [nsps]
+    desc: While true loop labelling a given namespace with Pod Security labels, if external source creates namespace (e.g. Azure Arc's Helm apply with `--create-namespace`)
+    vars:
+      NS: &ns-fail '{{ or .NS (fail "Missing `NS` environment variable!") }}'
+      PS: '{{ or .PS (fail "Missing `PS` environment variable!") }}'
+    cmds:
+      - while true; do kubectl label namespaces {{.NS}} "pod-security.kubernetes.io/enforce={{.PS}}" >/dev/null 2>/dev/null || true; kubectl label namespaces {{.NS}} "pod-security.kubernetes.io/enforce-version=latest" >/dev/null 2>/dev/null || true; done
+
+  wait-pod-pending:
+    aliases: [waitp]
+    internal: true
+    desc: Wait for a job's pod to change its status to pending
+    vars:
+      NAME: &name-fail '{{ or .NAME (fail "Missing `NAME` environment variable!") }}'
+      NS: *ns-fail
+    cmds:
+      - until [[ $(kubectl -n "{{.NS}}" get pod "{{.NAME}}" -o jsonpath='{.items[*].status.phase}') == "Pending" ]]; do sleep 1; done
+
+  wait-pod-running:
+    aliases: [waitr]
+    internal: true
+    desc: Wait for a job's pod to change its status to pending
+    vars:
+      NAME: *name-fail
+      NS: *ns-fail
+    cmds:
+      - until [[ $(kubectl -n "{{.NS}}" get pod "{{.NAME}}" -o jsonpath='{.items[*].status.phase}') == "Running" ]]; do sleep 1; done
+
+  wait-pod-delete:
+    aliases: [waitd]
+    internal: true
+    desc: Wait for a job's pod to delete
+    vars:
+      NAME: *name-fail
+      NS: *ns-fail
+    cmds:
+      - until kubectl wait pod -n {{.NS}} {{.NAME}} --for delete --timeout=1m; do sleep 1; done
+
+  wait-finish:
+    internal: true
+    desc: Wait for a job's pod to change its status to pending
+    vars:
+      NAME: *name-fail
+      NS: *ns-fail
+      TYPE: '{{ .TYPE | default "job" }}'
+      # WAIT_ARGS: '{{.WAIT_ARGS | default "echo \"{{.NAME}} is still running, logs:\" && kubectl -n {{.NS}} logs {{.NAME}} --since 2s -f;"}}'
+    cmds:
+      - |-
+        until kubectl -n {{.NS}} wait {{.TYPE}}/{{.NAME}} --for condition=complete --timeout=2s; do
+          echo "{{.NAME}} is still running, logs:" && kubectl -n {{.NS}} logs {{.TYPE}}/{{.NAME}} --since 2s -f || true;
+        done
+
+  get-public-ingresses:
+    aliases: [gpi]
+    desc: |
+      TL;dr: Check which ingress resources are exposed publicly via DNS to specific target.
+      Long Description: Search through all ingress resources for names of which resources have specific external-dns annotation values.
+    vars:
+      dns: '{{ or .dns (fail "Missing search query!") }}'
+    cmds:
+      - kubectl get ingress,svc -A -o yaml | yq -r '.items | map(select(.metadata.annotations."external-dns.alpha.kubernetes.io/target"=="*{{.dns}}*").metadata.name)'
+
+  sops-apply:
+    aliases: [sa]
+    desc: Decrypt cluster secrets and vars to envsubst local resource, then apply substituted resource.
+    vars:
+      F: '{{ or .F (fail "Missing file (`f` var) to `envsubst && k apply`!") }}'
+      SECRETS_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/config/secrets.sops.env"
+      VARS_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/config/vars.sops.env"
+      FCMD: '{{ .FCMD | default "cat" }}'
+      C: '{{.C | default "admin@kube-prod"}}'
+    cmds:
+      #- sops exec-env {{.SECRETS_FILE}} "sops exec-env {{.VARS_FILE}} \"{{.FCMD}} {{.F}} | envsubst | kubectl apply --context {{.C}} -f -\""
+      - sops exec-env {{.SECRETS_FILE}} "sops exec-env {{.VARS_FILE}} \"{{.FCMD}} {{.F}} | envsubst | kubectl apply -f -\""
+
+  cilium-bootstrap:
+    aliases: [cilium]
+    desc: Bootstrap Cilium onto new cluster, ready for Flux to take over managing Cilium.
+    vars:
+      C: '{{ or .C (fail "Missing C environment variable for cluster!") }}'
+    cmds:
+      - kubectl delete configmap -n kube-system cilium-config || true
+      - kubectl delete daemonset -n kube-system cilium || true
+      - kubectl delete deployment -n kube-system cilium-operator || true
+      #- cp {{.ROOT_DIR}}/kubernetes/deployments/core/_networking/cilium/clusters/{{.C}}/helm-values.yaml {{.ROOT_DIR}}/kubeernetes/deployments/core/_networking/cilium/app/bootstrap-install/base-values.yaml
+      - task: sops-apply
+        vars:
+          C: '{{.C | default "admin@kube-prod"}}'
+          F: "{{.ROOT_DIR}}/kubernetes/deployments/core/_networking/cilium/app/bootstrap-install"
+          FCMD: "kubectl kustomize --enable-helm"
+      - defer: rm -rf {{.ROOT_DIR}}/kubernetes/deployments/core/_networking/cilium/app/bootstrap-install/charts
+
+  newapp:
+    desc: Copy app folder structure template, substitute APPNAME, and (TODO) prompt user for variables values such as DNS, UID etc.
+    vars:
+      APP: &app-fail '{{ or .APP (fail "Missing `app` variable!") }}'
+    cmds:
+      - cp -r {{.ROOT_DIR}}/kubernetes/templates {{.ROOT_DIR}}/kubernetes/deployments/apps/{{.app}}
+      # lowercase, used for resource names etc
+      - grep -lR 'APPNAME' {{.ROOT_DIR}}/kubernetes/deployments/apps/{{.app}}/ | xargs -I% sed -i 's/${APPNAME}/{{.app}}/g' %
+      # uppercase, for variable substitution references e.g. ${APP_DNS_AUTHENTIK}
+      - grep -lR 'APPNAME' {{.ROOT_DIR}}/kubernetes/deployments/apps/{{.app}}/ | xargs -I% sed -i 's/_APPNAME}/_{{.app}}}/g;s/\(_{{.app}}}\)/\U\1/g' %
+
+  iperf2:
+    desc: Start a iperf2 server on one node, and iperf2 client on another node, to benchmark network performance.
+    dir: "{{.ROOT_DIR}}/.taskfiles/k8s/template/iperf2"
+    vars: &iperf2-vars
+      SERVER_NAME: &iperf2-server-name 'iperf2-server-{{- .TIMENOW -}}'
+      SERVER_NS: &iperf2-server-ns '{{ .SERVER_NS | default "default" }}'
+      CLIENT_NAME: &iperf2-client-name 'iperf2-client-{{- .TIMENOW -}}'
+      CLIENT_NS: &iperf2-client-ns '{{ .CLIENT_NS | default "default" }}'
+      CLUSTER_DOMAIN: '{{ .CLUSTER_DOMAIN | default "cluster.local" }}'
+      SERVER_PORT: '{{ .SERVER_PORT | default "5001" }}'
+      SERVER_NODE: '{{ or .SERVER_NODE (fail "Missing `SERVER_NODE` environment variable!") }}'
+      CLIENT_NODE: '{{ or .CLIENT_NODE (fail "Missing `CLIENT_NODE` environment variable!") }}'
+      SERVER_ARGS: '{{ .SERVER_ARGS | default "" }}'
+      CLIENT_ARGS: '{{ .CLIENT_ARGS | default "" }}'
+    env: *iperf2-vars
+    cmds:
+      - cat ./server.yaml | envsubst | kubectl apply -f -
+      - defer: cat ./server.yaml | envsubst | kubectl delete -f -
+      - task: wait-pod-running
+        vars:
+          NAME: '-l job-name={{.SERVER_NAME}}'
+          NS: '{{.SERVER_NS}}'
+      - cat ./client.yaml | envsubst | kubectl apply -f -
+      - defer: cat ./client.yaml | envsubst | kubectl delete -f -
+      - task: wait-finish
+        vars:
+          NAME: '{{.CLIENT_NAME}}'
+          NS: '{{.CLIENT_NS}}'
+
+  kbench:
+    vars: &kbench-vars
+      # SC: '{{ or .SC (fail "Missing `SC` environment variable!") }}'
+      SC: '{{.SC}}'
+      NODE: '{{.NODE}}'
+      NS: '{{ .NS | default "default" }}'
+    env: *kbench-vars
+    cmds:
+      - &kbench-delete |-
+        export KBENCH=$(curl -sL https://raw.githubusercontent.com/yasker/kbench/main/deploy/fio.yaml)
+        [[ ! -z "{{.SC}}" ]] && export KBENCH=$(printf '%s\n' "${KBENCH}" | yq '. | select(.kind == "PersistentVolumeClaim").spec.storageClassName = "{{.SC}}"')
+        [[ ! -z "{{.NODE}}" ]] && export KBENCH=$(printf '%s\n' "${KBENCH}" | yq '. | select(.kind == "Job").spec.template.spec.nodeSelector."kubernetes.io/hostname" = "{{.NODE}}"')
+        export KBENCH=$(printf '%s\n' "${KBENCH}" | yq '. | select(.kind == "PersistentVolumeClaim").metadata.name = "kbench-{{- .TIMENOW -}}"')
+        export KBENCH=$(printf '%s\n' "${KBENCH}" | yq '. | select(.kind == "Job").metadata.name = "kbench-{{- .TIMENOW -}}"')
+        export KBENCH=$(printf '%s\n' "${KBENCH}" | yq '. | (select(.kind == "Job").spec.template.spec.volumes.[] | select(.name == "vol").persistentVolumeClaim.claimName) |= "kbench-{{- .TIMENOW -}}"')
+        printf '%s\n' "${KBENCH}" | kubectl delete -n {{.NS}} -f - || true
+      - |-
+        export KBENCH=$(curl -sL https://raw.githubusercontent.com/yasker/kbench/main/deploy/fio.yaml)
+        [[ ! -z "{{.SC}}" ]] && export KBENCH=$(printf '%s\n' "${KBENCH}" | yq '. | select(.kind == "PersistentVolumeClaim").spec.storageClassName = "{{.SC}}"')
+        [[ ! -z "{{.NODE}}" ]] && export KBENCH=$(printf '%s\n' "${KBENCH}" | yq '. | select(.kind == "Job").spec.template.spec.nodeSelector."kubernetes.io/hostname" = "{{.NODE}}"')
+        export KBENCH=$(printf '%s\n' "${KBENCH}" | yq '. | select(.kind == "PersistentVolumeClaim").metadata.name = "kbench-{{- .TIMENOW -}}"')
+        export KBENCH=$(printf '%s\n' "${KBENCH}" | yq '. | select(.kind == "Job").metadata.name = "kbench-{{- .TIMENOW -}}"')
+        export KBENCH=$(printf '%s\n' "${KBENCH}" | yq '. | (select(.kind == "Job").spec.template.spec.volumes.[] | select(.name == "vol").persistentVolumeClaim.claimName) |= "kbench-{{- .TIMENOW -}}"')
+        printf '%s\n' "${KBENCH}" | kubectl apply -n {{.NS}} -f -
+      - defer: *kbench-delete
+      - task: wait-finish
+        vars:
+          NS: '{{ .NS | default "default" }}'
+          NAME: "kbench-{{- .TIMENOW -}}"
+          TYPE: "job"
+
+  scale-to-0:
+    aliases: ["0"]
+    desc: Scale given workloads to 0
+    vars: &scale-vars
+      KS:
+        sh: |-
+          [[ -z "{{.KS}}" ]] && echo "{{.APP}}-app" || echo "{{.KS}}"
+      KSNS: '{{ .KSNS | default "flux-system" }}'
+      HR: '{{ .HR | default .APP }}'
+      HRNS:
+        sh: |-
+          [[ -n "{{.HRNS}}" ]] && echo "{{.HRNS}}" && exit || [[ -n "{{.NS}}" ]] && echo "{{.NS}}" && exit || echo "{{.APP}}"
+      APP: *app-fail
+      NS: '{{ .NS | default .APP }}'
+      REASON: '{{ .REASON | default .TIMENOW }}'
+    cmds:
+      - |- # annotate Flux Kustomization
+        [[ {{.KS}} != "false" ]] && kubectl annotate --overwrite kustomizations.kustomize.toolkit.fluxcd.io -n {{.KSNS}} {{.KS}} scaledown.home.arpa/reason={{.REASON}} || true
+      - |- # suspend Flux Kustomization
+        [[ {{.KS}} != "false" ]] && flux suspend kustomization -n {{.KSNS}} {{.KS}} || true
+      - |- # annotate Flux HelmRelease
+        [[ {{.HR}} != "false" ]] && kubectl annotate --overwrite helmreleases.helm.toolkit.fluxcd.io -n {{.HRNS}} {{.HR}} scaledown.home.arpa/reason={{.REASON}} || true
+      - |- # suspend Flux HelmRelease
+        [[ {{.HR}} != "false" ]] && flux suspend helmrelease -n {{.HRNS}} {{.HR}} || true
+      - |- # annotate Kubernetes controller with reason
+        kubectl annotate --overwrite deployment -n {{.NS}} {{.APP}} scaledown.home.arpa/reason={{.REASON}} || kubectl annotate --overwrite statefulset -n {{.NS}} {{.APP}} scaledown.home.arpa/reason={{.REASON}}
+      - |- # annotate Kubernetes controller with old replica count
+        kubectl annotate --overwrite deployment -n {{.NS}} {{.APP}} scaledown.home.arpa/replicas=$(kubectl get deployment -n {{.NS}} {{.APP}} -o jsonpath='{.spec.replicas}') || kubectl annotate --overwrite statefulset -n {{.NS}} {{.APP}} scaledown.home.arpa/replicas=$(kubectl get statefulset -n {{.NS}} {{.APP}} -o jsonpath='{.spec.replicas}')
+      - |- # scale down Kubernetes controller
+        kubectl scale deployment -n {{.NS}} {{.APP}} --replicas 0 || kubectl scale statefulset -n {{.NS}} {{.APP}} --replicas 0
+      - task: wait-pod-delete
+        vars:
+          NAME: '{{.APP}}'
+          NS: '{{.NS}}'
+
+  scale-back-up:
+    aliases: ["up"]
+    vars: *scale-vars
+    cmds:
+      - |- # scale up Kubernetes controller back to old replica count
+        kubectl scale deployment -n {{.NS}} {{.APP}} --replicas "$(kubectl get deployment -n {{.NS}} {{.APP}} -o jsonpath='{.metadata.annotations.scaledown\.home\.arpa/replicas}')" || kubectl scale statefulset -n {{.NS}} {{.APP}} --replicas "$(kubectl get statefulset -n {{.NS}} {{.APP}} -o jsonpath='{.metadata.annotations.scaledown\.home\.arpa/replicas}')"
+      - |- # remove old replica count annotation from Kubernetes controller
+        kubectl annotate deployment -n {{.NS}} {{.APP}} scaledown.home.arpa/replicas- || kubectl annotate statefulset -n {{.NS}} {{.APP}} scaledown.home.arpa/replicas-
+      - |- # remove reason annotation from Kubernetes controller
+        kubectl annotate deployment -n {{.NS}} {{.APP}} scaledown.home.arpa/reason- || kubectl annotate statefulset -n {{.NS}} {{.APP}} scaledown.home.arpa/reason-
+      - |- # resume Flux HelmRelease
+        [[ {{.HR}} != "disabled" ]] && flux resume helmrelease -n {{.HRNS}} {{.HR}} || true
+      - |- # remove reason annotation from Flux HelmRelease
+        [[ {{.HR}} != "disabled" ]] && kubectl annotate helmreleases.helm.toolkit.fluxcd.io -n {{.HRNS}} {{.HR}} scaledown.home.arpa/reason- || true
+      - |- # resume Flux Kustomization
+        [[ {{.KS}} != "disabled" ]] && flux resume kustomization -n {{.KSNS}} {{.KS}} || true
+      - |- # remove reason annotation from Flux Kustomization
+        [[ {{.KS}} != "disabled" ]] && kubectl annotate kustomizations.kustomize.toolkit.fluxcd.io -n {{.KSNS}} {{.KS}} scaledown.home.arpa/reason- || true
