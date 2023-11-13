@@ -51,6 +51,7 @@ tasks:
       - task: bootstrap
       - task: configfile-talos
       - task: configfile-kube
+      - sleep 60
       - task: :k8s:cilium-bootstrap
       - task: enable-vmtools
 

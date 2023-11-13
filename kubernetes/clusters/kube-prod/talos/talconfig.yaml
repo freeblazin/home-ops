@@ -90,6 +90,16 @@ patches:
         disabled: false
         servers:
           - ${IP_NTP_SERVER}
+    - op: add
+      path: /machine/features
+      value:
+        kubePrism:
+          enabled: true
+          port: 7445
+    - op: add
+      path: /cluster/proxy
+      value:
+        disabled: true
 
 controlPlane:
   patches:

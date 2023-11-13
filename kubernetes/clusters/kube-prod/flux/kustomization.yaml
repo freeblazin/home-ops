@@ -7,3 +7,4 @@ resources:
   - ../config/
   - flux-install.yaml
   - flux-repo.yaml
+  - ../../../deployment/core/_networking/cilium/
