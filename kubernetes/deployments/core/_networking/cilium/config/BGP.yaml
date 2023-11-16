@@ -17,5 +17,5 @@ spec:
         matchExpressions:
           - {key: thisFakeSelector, operator: NotIn, values: ['will-match-and-announce-all-services']}
       neighbors:
-        - peerAddress: "${IP_GATEWAY_K8S_VLAN}/32" # unlike bgp-config ConfigMap, peerAddress needs to be in CIDR notation
+        - peerAddress: "10.10.10.10/32" # unlike bgp-config ConfigMap, peerAddress needs to be in CIDR notation
           peerASN: 65535
