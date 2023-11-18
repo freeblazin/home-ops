@@ -15,7 +15,7 @@ creation_rules:
       - age:
           - age1skatly42g7vng3twta22kdlvzg98p3p5zk7rzn285pncxkzzu3usvp7gvh
   # Kubernetes manafest files
-  - path_regex: kubernetes\/.*\.ya?ml
+  - path_regex: (kubernetes|secrets|tmp)\/.*\.ya?ml
     input_type: yaml
     encrypted_regex: ^(data|stringData)$
     key_groups:

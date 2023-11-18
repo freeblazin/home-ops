@@ -15,17 +15,11 @@ tasks:
 
   init-full:
     aliases: [init]
-    vars:
-      APPLY: "true"
     cmds:
       - task: switch
       - task: :flux:install
       - task: init-config
-        vars:
-          APPLY: "true"
-      - task: init-config-repo
-        vars:
-          APPLY: "true"
+      - task: apply-resources
 
   init-config:
     aliases: [initcfg]
@@ -34,48 +28,51 @@ tasks:
         vars:
           ENV_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/config/vars.sops.env"
           NAME: '{{ .NAME | default "vars" }}'
-          APPLY: '{{ or .APPLY (fail "Missing APPLY environment variable!") }}'
       - task: decrypt-sops
         vars:
           ENV_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/config/secrets.sops.env"
           NAME: '{{ .NAME | default "secrets" }}'
-          APPLY: '{{ or .APPLY (fail "Missing APPLY environment variable!") }}'
 
   decrypt-sops:
     vars:
       ENV_FILE: '{{ or .ENV_FILE (fail "Missing FILE environment variable!") }}'
       NAME: '{{ or .NAME (fail "Missing NAME environment variable!") }}'
-      APPLY: '{{ or .APPLY (fail "Missing APPLY environment variable!") }}'
     cmds:
       - sops exec-file {{.ENV_FILE}} "SOPS_FILE={} task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml cluster:generate-kustomization APPLY={{.APPLY}} NAME={{.NAME}}"
 
   generate-kustomization:
     vars:
       KUSTOMIZATION_TEMPLATE: "{{.ROOT_DIR}}/kubernetes/bootstrap/config/secret-generator-kustomization.tmpl.yaml"
+      SECRET_TEMPLATE: "{{.ROOT_DIR}}/kubernetes/bootstrap/config/secret.tmpl.yaml"
       SOPS_DIR:
         sh: echo {{.SOPS_FILE}} | xargs dirname
+      SED_COMMAND: 's/="/: /m;s/.$//'
     cmds:
-      - CLUSTER={{.C}} NAME={{.NAME}} FILE=$(echo {{.SOPS_FILE}} | xargs basename) envsubst < <(cat {{.KUSTOMIZATION_TEMPLATE}}) > {{.SOPS_DIR}}/kustomization.yaml
-      - task: apply-kustomization
-        vars:
-          SOPS_DIR: '{{ or .SOPS_DIR (fail "Missing SOPS_DIR environment variable!") }}'
-          APPLY: '{{ or .APPLY (fail "Missing APPLY environment variable!") }}'
+      - cat {{.SOPS_FILE}} > {{.SOPS_DIR}}/vars.unencrypted.yaml
+      - sed -i '{{.SED_COMMAND}}' {{.SOPS_DIR}}/vars.unencrypted.yaml
+      - yq eval-all 'select(fileIndex==0).stringData = select(fileIndex==1) | select(fileIndex==0)' {{.SECRET_TEMPLATE}} {{.SOPS_DIR}}/vars.unencrypted.yaml > {{.SOPS_DIR}}/{{.C}}-{{.NAME}}.unencrypted.yaml
+      - CLUSTER={{.C}} NAME={{.NAME}} yq -i '(.. | select(tag == "!!str")) |= envsubst' {{.SOPS_DIR}}/{{.C}}-{{.NAME}}.unencrypted.yaml
+      - sops -e {{.SOPS_DIR}}/{{.C}}-{{.NAME}}.unencrypted.yaml > {{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/config/{{.C}}-{{.NAME}}.yaml
 
-  apply-kustomization:
-    cmds:
-      - if [[ {{.APPLY}} = "true" ]];
-        then kubectl apply -k {{.SOPS_DIR}};
-        else kubectl kustomize {{.SOPS_DIR}};
-        fi
-
-  init-config-repo:
-    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/flux"
+  apply-resources:
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}"
     vars:
       APPLY: '{{ or .APPLY (fail "Missing APPLY environment variable!") }}'
     preconditions:
       - sh: '[ {{.APPLY}} = "true" ]'
         msg: "Apply isn't enabled, will not apply!"
     cmds:
-      - sops --decrypt secrets-age.sops.yaml | kubectl apply -f -
-      - sops --decrypt secrets-ssh.sops.yaml | kubectl apply -f -
-      - kubectl apply --server-side -f flux-repo.yaml
+      - sops --decrypt ./config/secrets-age.sops.yaml | kubectl apply -f -
+      - sops --decrypt ./config/secrets-ssh.sops.yaml | kubectl apply -f -
+      - sops --decrypt ./config/{{.C}}-secrets.yaml | kubectl apply -f -
+      - sops --decrypt ./config/{{.C}}-vars.yaml | kubectl apply -f -
+      #- kubectl apply --server-side -f ./flux/flux-repo.yaml
+
+  # Cleanup unencrypted temp secret manifest files
+  cleanup-secrets:
+    dir: "{{.SECRETS_DIR}}"
+    status:
+      - test -f {{.C}}-*.unencrypted.yaml
+    cmds:
+      # Remove all unencrypted temp secret manifest files
+      - rm -rf {{.C}}-*.unencrypted.yaml
