@@ -391,3 +391,6 @@ tasks:
     cmds:
       # Remove all unencrypted temp .env files from secrets directory
       - rm -rf {{.SECRETS_DIR}}/*.vars.unencrypted.env
+
+  test:
+    - env
