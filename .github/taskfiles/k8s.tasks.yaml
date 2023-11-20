@@ -76,8 +76,8 @@ tasks:
     desc: Decrypt cluster secrets and vars to envsubst local resource, then apply substituted resource.
     vars:
       F: '{{ or .F (fail "Missing file (`f` var) to `envsubst && k apply`!") }}'
-      SECRETS_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/config/secrets.sops.env"
-      VARS_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/config/vars.sops.env"
+      SECRETS_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/secrets.sops.env"
+      VARS_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/vars.sops.env"
       FCMD: '{{ .FCMD | default "cat" }}'
       C: '{{.C | default "admin@kube-prod"}}'
     cmds:

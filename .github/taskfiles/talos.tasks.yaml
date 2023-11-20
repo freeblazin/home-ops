@@ -230,7 +230,6 @@ tasks:
     dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/talos"
     dotenv: ["{{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env"]
     cmds:
-      - echo Powering On {{.HOSTNAME}}...
       - govc vm.power -on {{.HOSTNAME}}
 
   # Power off VM
@@ -239,7 +238,6 @@ tasks:
     dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/talos"
     dotenv: ["{{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env"]
     cmds:
-      - echo Powering Off {{.HOSTNAME}}...
       - govc vm.power -off {{.HOSTNAME}}
 
   # Power off VM and delete from disk
@@ -248,7 +246,6 @@ tasks:
     dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/talos"
     dotenv: ["{{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env"]
     cmds:
-      - echo Deleting {{.HOSTNAME}}...
       - govc vm.destroy {{.HOSTNAME}}
 
   # Bootstrap Talos Cluster
@@ -372,7 +369,8 @@ tasks:
     status:
       - test -f {{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env
     cmds:
-      - sops exec-file "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/config/vars.sops.env" 'op inject -i {}' >> {{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env
+      - sops exec-file "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/vars.sops.env" 'op inject -i {}' >> {{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env
+      - sops exec-file "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/secrets.sops.env" 'op inject -i {}' >> {{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env
 
   # Injection of decrypted secrets directly into talos task
   inject-task:
@@ -380,14 +378,15 @@ tasks:
       CLI_ARGS: '{{.CLI_ARGS | default "list"}}'
       C: '{{ or .C (fail "\n\nERROR ->  Missing CLUSTER environment variable!") }}'
     cmds:
-      - sops exec-file "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/config/vars.sops.env" 'op run --env-file={} -- task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml talos:{{.CLI_ARGS}} C={{.C}}'
+      - sops exec-file "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/vars.sops.env" 'op run --env-file={} -- task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml talos:{{.CLI_ARGS}} C={{.C}}'
 
   # Cleanup unencrypted temp .env files
   cleanup-env:
     desc: Extract encrypted variables from SOPS config file to be used as .env for tasks
     preconditions:
-      - sh: "[ -f {{.SECRETS_DIR}}/*.vars.unencrypted.env ]"
+      - sh: "[ -f {{.SECRETS_DIR}}/*.unencrypted.env ]"
         msg: "Nothing to cleanup"
     cmds:
       # Remove all unencrypted temp .env files from secrets directory
-      - rm -rf {{.SECRETS_DIR}}/*.vars.unencrypted.env
+      - rm -rf {{.SECRETS_DIR}}/*.unencrypted.env
+
