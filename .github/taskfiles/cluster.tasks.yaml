@@ -20,6 +20,16 @@ tasks:
       - task: :flux:install
       - task: init-config
       - task: apply-resources
+      - task: apply-flux-resources
+
+  update-vars:
+    aliases: [init]
+    cmds:
+      - task: switch
+      - task: init-config
+      - task: apply-resources
+        vars:
+          APPLY: true
 
   init-config:
     aliases: [initcfg]
@@ -62,9 +72,17 @@ tasks:
       - sh: '[ {{.APPLY}} = "true" ]'
         msg: "Apply isn't enabled, will not apply!"
     cmds:
-      - sops --decrypt ./vars/secrets-age.sops.yaml | kubectl apply -f -
-      - sops --decrypt ./vars/secrets-ssh.sops.yaml | kubectl apply -f -
       - sops --decrypt ./vars/{{.C}}-secrets.yaml | kubectl apply -f -
       - sops --decrypt ./vars/{{.C}}-vars.yaml | kubectl apply -f -
-      - kubectl apply --server-side -f ./flux/flux-repo.yaml
 
+  apply-flux-resources:
+    dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}"
+    vars:
+      APPLY: '{{ or .APPLY (fail "Missing APPLY environment variable!") }}'
+    preconditions:
+      - sh: '[ {{.APPLY}} = "true" ]'
+        msg: "Apply isn't enabled, will not apply!"
+    cmds:
+      - sops --decrypt ./vars/secrets-age.sops.yaml | kubectl apply -f -
+      - sops --decrypt ./vars/secrets-ssh.sops.yaml | kubectl apply -f -
+      - kubectl apply --server-side -f ./flux/flux-repo.yaml
