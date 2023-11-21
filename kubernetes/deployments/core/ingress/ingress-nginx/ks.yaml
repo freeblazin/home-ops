@@ -8,5 +8,3 @@ metadata:
     prune.flux.home.arpa/disabled: "true"
 spec:
   path: ./kubernetes/deployments/core/ingress/ingress-nginx/app
-  dependsOn:
-    #- name: 1-core-ingress-deps
