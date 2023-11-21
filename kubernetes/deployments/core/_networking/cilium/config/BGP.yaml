@@ -11,11 +11,11 @@ spec:
     matchLabels:
       kubernetes.io/os: "linux" # match all Linux nodes, change this to match more granularly if more than 1 PeeringPolicy is to be used throughout cluster
   virtualRouters:
-    - localASN: 65535 # ASNs are processed in uint32
+    - localASN: ${ASN_ROUTER} # ASNs are processed in uint32
       exportPodCIDR: false
       serviceSelector: # this replaces address-pools, instead of defining the range of IPs that can be assigned to LoadBalancer services, now services have to match below selectors for their LB IPs to be announced
         matchExpressions:
           - {key: thisFakeSelector, operator: NotIn, values: ['will-match-and-announce-all-services']}
       neighbors:
         - peerAddress: "${IP_GATEWAY_K8S_VLAN}/32" # unlike bgp-config ConfigMap, peerAddress needs to be in CIDR notation
-          peerASN: 65535
+          peerASN: ${ASN_ROUTER}
