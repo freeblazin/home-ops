@@ -6,3 +6,4 @@ metadata:
   namespace: flux-system
 spec:
   path: ./kubernetes/deployments/core/ingress/_deps/app
+  dependsOn: []

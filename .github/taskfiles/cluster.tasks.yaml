@@ -23,7 +23,6 @@ tasks:
       - task: apply-flux-resources
 
   update-vars:
-    aliases: [init]
     cmds:
       - task: switch
       - task: init-config
