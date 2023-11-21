@@ -30,9 +30,9 @@ spec:
           "io.cilium/lb-ipam-ips": "${APP_IP_NGINX}"
       publishService:
         enabled: true
-      extraArgs:
-        default-ssl-certificate: ingress/short-domain-tls
-        default-backend-service: ingress/default-backend
+      #extraArgs:
+        #default-ssl-certificate: ingress/short-domain-tls
+        #default-backend-service: ingress/default-backend
       ingressClassByName: true
       config:
         enable-real-ip: "true"
