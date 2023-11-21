@@ -5,4 +5,4 @@ metadata:
   name: 1-core-ingress-deps
   namespace: flux-system
 spec:
-  path: ./kubernetes/deployments/core/ingress/_deps
+  path: ./kubernetes/deployments/core/ingress/_deps/app
