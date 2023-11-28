@@ -6,6 +6,6 @@ configMapGenerator:
   - name: cilium-base-install-values
     namespace: kube-system
     files:
-      - values.yaml=bootstrap-install/base-values.yaml
+      - values.yaml=./base-values.yaml
 configurations:
   - kustomizeconfig.yaml

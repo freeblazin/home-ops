@@ -30,15 +30,16 @@ tasks:
         then echo -e "Talos Client version mismatch\n
         Installed - {{.TALOSCTL_VERSION}}\n
         Required - $TALOS_VERSION\n
-        Install the matching client version with - task management:install-talosctl";
+        Installing the matching client version"
+        && task management:install-talosctl;
         fi
       - if [[ "{{.KUBECTL_VERSION}}" != "$KUBERNETES_VERSION" ]];
         then echo -e "Kubernetes Client version mismatch\n
         Installed - {{.KUBECTL_VERSION}}\n
         Required - $KUBERNETES_VERSION\n
-        Install the matching client version with - task management:install-kubectl";
+        Installing the matching client version"
+        && task management:install-kubectl;
         fi
-      - exit 1
 
   init-full:
     aliases: [init]

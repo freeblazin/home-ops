@@ -35,58 +35,19 @@ spec:
     - kind: ConfigMap
       name: cilium-base-install-values
   values:
-    securityContext: # required for Talos
-      capabilities:
-        ciliumAgent: "{CHOWN,KILL,NET_ADMIN,NET_RAW,IPC_LOCK,SYS_ADMIN,SYS_RESOURCE,DAC_OVERRIDE,FOWNER,SETGID,SETUID}"
-        cleanCiliumState: "{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}"
-    cgroup:
-      autoMount:
-        enabled: false
-      hostRoot: "/sys/fs/cgroup"
-    bgpControlPlane:
-      enabled: true
-    loadBalancer:
-      algorithm: maglev
-      # mode: snat
-      mode: dsr
     nodePort:
       enabled: true
       range: 9993,32767
     bandwidthManager:
-      enabled: true
+      enabled: false # enable after Talos kernel updated to >= 5.18
       bbr: false # enable after Talos kernel updated to >= 5.18
     bpf:
       masquerade: true
       tproxy: true
     enableIPv6BIGTCP: false # enable after Talos kernel updated to >= 5.19
-    l7Proxy: true
     
     # `kubectl get` and `kubectl describe` will reflect CiliumNetworkPolicy & CiliumEndpoints status (policy enforcement etc) with this enabled
     enableCnpStatusUpdates: true
     endpointStatus:
       enabled: true
       status: "policy"
-
-    hubble:
-      enabled: true
-      peerService:
-        clusterDomain: "${DNS_CLUSTER_DN}"
-      relay:
-        enabled: true
-      ui:
-        enabled: true
-        rollOutPods: true
-        ingress:
-          enabled: true
-          className: "nginx"
-          hosts:
-            - "${APP_DNS_HUBBLE}"
-          tls:
-            - hosts:
-                - "${APP_DNS_HUBBLE}"
-      tls:
-        enabled: true
-        auto:
-          enabled: true
-          method: "helm"
-          certValidityDuration: 3650
