@@ -111,6 +111,7 @@ tasks:
           HOSTNAME: "{{.ITEM}}"
 
   destroy-cluster:
+    aliases: [destroy]
     desc: Destroy an existing Talos cluster deployed with this Taskfile
     prompt: This will forcefully destroy the Talos {{.C}} and delete VMs from vCenter... Do you want to continue?
     dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/talos"
@@ -390,3 +391,8 @@ tasks:
     cmds:
       # Remove all unencrypted temp .env files from secrets directory
       - rm -rf {{.SECRETS_DIR}}/*.unencrypted.env
+
+  test:
+    dotenv: ["{{.SECRETS_DIR}}/vars.sops.env"]
+    cmds:
+      - env

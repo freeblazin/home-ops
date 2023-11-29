@@ -82,7 +82,8 @@ tasks:
       C: '{{.C | default "admin@kube-prod"}}'
     cmds:
       #- sops exec-env {{.SECRETS_FILE}} "sops exec-env {{.VARS_FILE}} \"{{.FCMD}} {{.F}} | envsubst | kubectl apply --context {{.C}} -f -\""
-      - sops exec-env {{.SECRETS_FILE}} "sops exec-env {{.VARS_FILE}} \"{{.FCMD}} {{.F}} | envsubst | kubectl apply -f -\""
+      #- sops exec-env {{.SECRETS_FILE}} "sops exec-env {{.VARS_FILE}} \"{{.FCMD}} {{.F}} | envsubst | kubectl apply -f -\""
+      - sops exec-env {{.SECRETS_FILE}} "sops exec-env {{.VARS_FILE}} \"{{.FCMD}} {{.F}} | envsubst > new-values.yaml \""
 
   cilium-bootstrap:
     aliases: [cilium]
@@ -100,7 +101,7 @@ tasks:
           C: '{{.C | default "admin@kube-prod"}}'
           F: "{{.ROOT_DIR}}/kubernetes/bootstrap/cilium"
           FCMD: "kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone"
-      - defer: rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/cilium/charts
+      - defer: rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/cilium/charts && rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/cilium/values.yaml
 
   newapp:
     desc: Copy app folder structure template, substitute APPNAME, and (TODO) prompt user for variables values such as DNS, UID etc.

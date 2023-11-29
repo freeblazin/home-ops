@@ -55,13 +55,14 @@ tasks:
       SECRET_TEMPLATE: "{{.ROOT_DIR}}/kubernetes/bootstrap/config/secret.tmpl.yaml"
       SOPS_DIR:
         sh: echo {{.SOPS_FILE}} | xargs dirname
-      SED_COMMAND: 's/\="/: "/g'
+      SED_COMMAND: 's/\=/: /g' # Command to surrond with single quotes 's/\=/: \x27/g;s/$/\x27/'
     cmds:
       - cat {{.SOPS_FILE}} > {{.SOPS_DIR}}/vars.unencrypted.yaml
-      - sed -i {{.SED_COMMAND}} {{.SOPS_DIR}}/vars.unencrypted.yaml
+      - sed -i '{{.SED_COMMAND}}' {{.SOPS_DIR}}/vars.unencrypted.yaml
       - yq eval-all 'select(fileIndex==0).stringData = select(fileIndex==1) | select(fileIndex==0)' {{.SECRET_TEMPLATE}} {{.SOPS_DIR}}/vars.unencrypted.yaml > {{.SOPS_DIR}}/{{.C}}-{{.NAME}}.unencrypted.yaml
       - CLUSTER={{.C}} NAME={{.NAME}} yq -i '(.. | select(tag == "!!str")) |= envsubst' {{.SOPS_DIR}}/{{.C}}-{{.NAME}}.unencrypted.yaml
       - sops -e {{.SOPS_DIR}}/{{.C}}-{{.NAME}}.unencrypted.yaml > {{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/{{.C}}-{{.NAME}}.yaml
+      #- cp {{.SOPS_DIR}}/{{.C}}-{{.NAME}}.unencrypted.yaml {{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/{{.C}}-{{.NAME}}.unencrypted.yaml
 
   apply-resources:
     dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}"
