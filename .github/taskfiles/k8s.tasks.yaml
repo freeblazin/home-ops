@@ -82,8 +82,8 @@ tasks:
       C: '{{.C | default "admin@kube-prod"}}'
     cmds:
       #- sops exec-env {{.SECRETS_FILE}} "sops exec-env {{.VARS_FILE}} \"{{.FCMD}} {{.F}} | envsubst | kubectl apply --context {{.C}} -f -\""
-      #- sops exec-env {{.SECRETS_FILE}} "sops exec-env {{.VARS_FILE}} \"{{.FCMD}} {{.F}} | envsubst | kubectl apply -f -\""
-      - sops exec-env {{.SECRETS_FILE}} "sops exec-env {{.VARS_FILE}} \"{{.FCMD}} {{.F}} | envsubst > new-values.yaml \""
+      #- sops exec-env {{.SECRETS_FILE}} "sops exec-env {{.VARS_FILE}} \"{{.FCMD}} {{.F}} | envsubst > new-values.yaml \""
+      - sops exec-env {{.SECRETS_FILE}} "sops exec-env {{.VARS_FILE}} \"{{.FCMD}} {{.F}} | envsubst | kubectl apply -f -\""
 
   cilium-bootstrap:
     aliases: [cilium]
