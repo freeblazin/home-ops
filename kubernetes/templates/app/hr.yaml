@@ -65,16 +65,16 @@ spec:
         initContainers:
           01-init-${APPNAME}-admin-password:
             command:
-            - /bin/sh
-            - -c
-            - '[ -s /data/${APPNAME}.db ] || /sbin/${APPNAME}d recover_account -c /data/server.toml admin'
+              - /bin/sh
+              - -c
+              - "[ -s /data/${APPNAME}.db ] || /sbin/${APPNAME}d recover_account -c /data/server.toml admin"
             image: docker.io/${APPNAME}/server:latest
             imagePullPolicy: IfNotPresent
             volumeMounts:
-            - mountPath: /data
-              name: data
-            - mountPath: /config
-              name: config
+              - mountPath: /data
+                name: data
+              - mountPath: /config
+                name: config
           01-init-db:
             image: "ghcr.io/onedr0p/postgres-init:14.8"
             imagePullPolicy: IfNotPresent
@@ -139,10 +139,10 @@ spec:
         tls:
           - hosts:
               - *host
-#     dnsConfig:
-#       options:
-#         - name: ndots
-#           value: "1"
+    #     dnsConfig:
+    #       options:
+    #         - name: ndots
+    #           value: "1"
     persistence:
       config:
         enabled: true

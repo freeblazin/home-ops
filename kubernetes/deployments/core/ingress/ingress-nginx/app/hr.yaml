@@ -31,8 +31,8 @@ spec:
       publishService:
         enabled: true
       #extraArgs:
-        #default-ssl-certificate: ingress/short-domain-tls
-        #default-backend-service: ingress/default-backend
+      #default-ssl-certificate: ingress/short-domain-tls
+      #default-backend-service: ingress/default-backend
       ingressClassByName: true
       config:
         enable-real-ip: "true"
@@ -62,20 +62,20 @@ spec:
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              topologyKey: kubernetes.io/hostname
-              labelSelector:
-                matchExpressions:
-                - key: app.kubernetes.io/name
-                  operator: In
-                  values:
-                  - ingress-nginx
-                - key: app.kubernetes.io/instance
-                  operator: In
-                  values:
-                  - ingress-nginx
-                - key: app.kubernetes.io/component
-                  operator: In
-                  values:
-                  - controller
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - ingress-nginx
+                    - key: app.kubernetes.io/instance
+                      operator: In
+                      values:
+                        - ingress-nginx
+                    - key: app.kubernetes.io/component
+                      operator: In
+                      values:
+                        - controller

@@ -34,20 +34,3 @@ spec:
   valuesFrom:
     - kind: ConfigMap
       name: cilium-base-install-values
-  values:
-    nodePort:
-      enabled: true
-      range: 9993,32767
-    bandwidthManager:
-      enabled: false # enable after Talos kernel updated to >= 5.18
-      bbr: false # enable after Talos kernel updated to >= 5.18
-    bpf:
-      masquerade: true
-      tproxy: true
-    enableIPv6BIGTCP: false # enable after Talos kernel updated to >= 5.19
-    
-    # `kubectl get` and `kubectl describe` will reflect CiliumNetworkPolicy & CiliumEndpoints status (policy enforcement etc) with this enabled
-    enableCnpStatusUpdates: true
-    endpointStatus:
-      enabled: true
-      status: "policy"
