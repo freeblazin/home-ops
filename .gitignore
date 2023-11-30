@@ -8,5 +8,6 @@ secrets/
 # Kubernetes
 kubeconfig
 
-# Cilium Chart
-*/cilium/app/bootstrap-install/charts
+# Helm Charts for Talos Bootstrap
+*/kubernetes/bootstrap/cilium/charts/
+*/kubernetes/bootstrap/csr-approver/charts/

@@ -67,10 +67,12 @@ patches:
       path: /cluster/extraManifests
       value:
         - "https://raw.githubusercontent.com/mologie/talos-vmtoolsd/master/deploy/unstable.yaml"
+        - "https://raw.githubusercontent.com/freeblazin/home-ops/main/kubernetes/bootstrap/csr-approver/csr-approver.yaml"
     - op: add
       path: /machine/kubelet/extraArgs
       value:
         feature-gates: CronJobTimeZone=true,GracefulNodeShutdown=true,ServerSideApply=true
+        rotate-server-certificates: "true"
     - op: add
       path: /machine/network/nameservers
       value:

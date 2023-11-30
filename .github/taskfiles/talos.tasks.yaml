@@ -49,12 +49,14 @@ tasks:
     dotenv: ["{{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env"]
     cmds:
       - task: deploy-cluster
+      - task: csr-bootstrap
       - task: bootstrap
       - task: configfile-talos
       - task: configfile-kube
-      - task: csr-bootstrap
+      #- task: csr-bootstrap
       - sleep 60
       - task: cilium-bootstrap
+      - task: csr-bootstrap
       - task: enable-vmtools
 
   deploy-cluster:
@@ -321,7 +323,8 @@ tasks:
       C: '{{ or .C (fail "Missing C environment variable for cluster!") }}'
     cmds:
       - envsubst < {{.ROOT_DIR}}/kubernetes/deployments/core/kubelet-csr-approver/app/values.yaml > values.yaml
-      - kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone | kubectl apply -f -
+      - kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone > csr-approver.yaml
+      #- kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone | kubectl apply -f -
       - defer: rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver/charts && rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver/values.yaml
   
   # Bootstrap Cillium by creating local chart for Talos
@@ -353,6 +356,7 @@ tasks:
       - kubectl -n kube-system create secret generic talos-vmtoolsd-config --from-file=talosconfig=./vmtoolsd-secret.yaml
       - rm -f vmtoolsd-secret.yaml
 
+  # Talosctl check health command
   check-health:
     cmds:
       - talosctl health
@@ -420,8 +424,3 @@ tasks:
     cmds:
       # Remove all unencrypted temp .env files from secrets directory
       - rm -rf {{.SECRETS_DIR}}/*.unencrypted.env
-
-  test:
-    dotenv: ["{{.SECRETS_DIR}}/vars.sops.env"]
-    cmds:
-      - env
