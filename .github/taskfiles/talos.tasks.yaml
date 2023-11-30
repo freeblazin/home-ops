@@ -52,6 +52,7 @@ tasks:
       - task: bootstrap
       - task: configfile-talos
       - task: configfile-kube
+      - task: csr-bootstrap
       - sleep 60
       - task: cilium-bootstrap
       - task: enable-vmtools
@@ -311,9 +312,22 @@ tasks:
       - |
         sed -i "s/current-context: admin@.*/current-context: admin@{{.C}}/g" ~/.kube/config || true
 
+  # Bootstrap CSR Approver by creating local chart for Talos
+  csr-bootstrap:
+    aliases: [csr]
+    desc: Bootstrap CSR Approver onto new cluster, ready for Flux to take over management.
+    dir: "{{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver"
+    vars:
+      C: '{{ or .C (fail "Missing C environment variable for cluster!") }}'
+    cmds:
+      - envsubst < {{.ROOT_DIR}}/kubernetes/deployments/core/kubelet-csr-approver/app/values.yaml > values.yaml
+      - kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone | kubectl apply -f -
+      - defer: rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver/charts && rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver/values.yaml
+  
+  # Bootstrap Cillium by creating local chart for Talos
   cilium-bootstrap:
     aliases: [cilium]
-    desc: Bootstrap Cilium onto new cluster, ready for Flux to take over managing Cilium.
+    desc: Bootstrap Cilium onto new cluster, ready for Flux to take over management.
     dir: "{{.ROOT_DIR}}/kubernetes/bootstrap/cilium"
     dotenv: ["{{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env"]
     vars:

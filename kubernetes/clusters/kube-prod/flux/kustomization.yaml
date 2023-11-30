@@ -5,6 +5,7 @@ resources:
   - ../vars/
   - flux-install.yaml
   - flux-repo.yaml
+  - ../../../deployments/core/kubelet-csr-approver/
   - ../../../deployments/core/_networking/cilium/
   - ../../../deployments/core/ingress/_deps/
   - ../../../deployments/core/ingress/ingress-nginx/

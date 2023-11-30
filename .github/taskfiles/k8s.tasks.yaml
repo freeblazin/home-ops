@@ -9,13 +9,22 @@ vars:
 
 tasks:
   race-ns-pod-security:
-    aliases: [nsps]
+    aliases: [rnsps]
     desc: While true loop labelling a given namespace with Pod Security labels, if external source creates namespace (e.g. Azure Arc's Helm apply with `--create-namespace`)
     vars:
       NS: &ns-fail '{{ or .NS (fail "Missing `NS` environment variable!") }}'
-      PS: '{{ or .PS (fail "Missing `PS` environment variable!") }}'
+      PS: '{{ or .PS (fail "Missing `PS` environment variable!") }}' # privileged,baseline,restricted  https://kubernetes.io/docs/concepts/security/pod-security-standards/
     cmds:
       - while true; do kubectl label namespaces {{.NS}} "pod-security.kubernetes.io/enforce={{.PS}}" >/dev/null 2>/dev/null || true; kubectl label namespaces {{.NS}} "pod-security.kubernetes.io/enforce-version=latest" >/dev/null 2>/dev/null || true; done
+
+  ns-pod-security:
+    aliases: [nsps]
+    desc: Set label for a given namespace with Pod Security labels
+    vars:
+      NS: &ns-fail '{{ or .NS (fail "Missing `NS` environment variable!") }}'
+      PS: '{{ .PS | default "privileged" }}'
+    cmds:
+      - kubectl label namespaces {{.NS}} "pod-security.kubernetes.io/enforce={{.PS}}"
 
   wait-pod-pending:
     aliases: [waitp]

@@ -1,0 +1,5 @@
+---
+providerRegex: |
+  ^kube-(prod|dev)-(control|worker)-\d\d$
+
+bypassDnsResolution: true
