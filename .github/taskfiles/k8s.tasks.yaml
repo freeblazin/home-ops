@@ -8,6 +8,11 @@ vars:
     sh: date +%Y%m%d-%H%M%S
 
 tasks:
+  start-netshoot:
+    aliases: [ns]
+    cmds:
+      - kubectl run netshoot --rm -i --tty --image nicolaka/netshoot
+
   race-ns-pod-security:
     aliases: [rnsps]
     desc: While true loop labelling a given namespace with Pod Security labels, if external source creates namespace (e.g. Azure Arc's Helm apply with `--create-namespace`)

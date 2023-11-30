@@ -9,3 +9,4 @@ resources:
   - ../../../deployments/core/_networking/cilium/
   - ../../../deployments/core/ingress/_deps/
   - ../../../deployments/core/ingress/ingress-nginx/
+  - ../../../deployments/core/external-secrets

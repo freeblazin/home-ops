@@ -49,14 +49,15 @@ tasks:
     dotenv: ["{{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env"]
     cmds:
       - task: deploy-cluster
+      - sleep 45
       - task: csr-bootstrap
       - task: bootstrap
+      - sleep 45
       - task: configfile-talos
       - task: configfile-kube
-      #- task: csr-bootstrap
-      - sleep 60
+      - sleep 90
+      - task: approve-certs
       - task: cilium-bootstrap
-      - task: csr-bootstrap
       - task: enable-vmtools
 
   deploy-cluster:
@@ -314,6 +315,13 @@ tasks:
       - |
         sed -i "s/current-context: admin@.*/current-context: admin@{{.C}}/g" ~/.kube/config || true
 
+  # Approve cluster certificate signing requests
+  approve-certs:
+    desc: Approve any waiting CSR requests
+    deps: [require-clients]
+    cmds:
+      - kubectl certificate approve $(kubectl get csr --sort-by=.metadata.creationTimestamp | grep Pending | awk '{print $1}')
+
   # Bootstrap CSR Approver by creating local chart for Talos
   csr-bootstrap:
     aliases: [csr]
@@ -326,7 +334,7 @@ tasks:
       - kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone > csr-approver.yaml
       #- kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone | kubectl apply -f -
       - defer: rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver/charts && rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver/values.yaml
-  
+
   # Bootstrap Cillium by creating local chart for Talos
   cilium-bootstrap:
     aliases: [cilium]

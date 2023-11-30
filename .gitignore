@@ -1,6 +1,6 @@
 # Repo Folders
 secrets/
-**/clusterconfig/
+**/clusterconfig
 
 # SOPS Temp Files
 **/*.sops_tmp.*
@@ -9,5 +9,5 @@ secrets/
 kubeconfig
 
 # Helm Charts for Talos Bootstrap
-*/kubernetes/bootstrap/cilium/charts/
-*/kubernetes/bootstrap/csr-approver/charts/
+**/kubernetes/bootstrap/cilium/charts
+**/kubernetes/bootstrap/csr-approver/charts
