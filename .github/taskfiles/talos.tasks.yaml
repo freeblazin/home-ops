@@ -59,6 +59,7 @@ tasks:
       - task: approve-certs
       - task: cilium-bootstrap
       - task: enable-vmtools
+      - task: :cluster:init
 
   deploy-cluster:
     desc: Deploy Talos cluster to vCenter
