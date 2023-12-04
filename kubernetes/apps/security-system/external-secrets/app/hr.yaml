@@ -3,7 +3,7 @@ apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
 metadata:
   name: &app external-secrets
-  namespace: *app
+  namespace: security-system
 spec:
   chart:
     spec:

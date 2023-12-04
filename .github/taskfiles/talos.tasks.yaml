@@ -330,7 +330,7 @@ tasks:
     vars:
       C: '{{ or .C (fail "Missing C environment variable for cluster!") }}'
     cmds:
-      - envsubst < {{.ROOT_DIR}}/kubernetes/deployments/core/kubelet-csr-approver/app/values.yaml > values.yaml
+      - envsubst < {{.ROOT_DIR}}/kubernetes/apps/kube-system/kubelet-csr-approver/app/values.yaml > values.yaml
       - kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone > csr-approver.yaml
       #- kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone | kubectl apply -f -
       - defer: rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver/charts && rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver/values.yaml
@@ -347,7 +347,7 @@ tasks:
       - kubectl delete configmap -n kube-system cilium-config || true
       - kubectl delete daemonset -n kube-system cilium || true
       - kubectl delete deployment -n kube-system cilium-operator || true
-      - envsubst < {{.ROOT_DIR}}/kubernetes/deployments/core/_networking/cilium/app/base-values.yaml > values.yaml
+      - envsubst < {{.ROOT_DIR}}/kubernetes/apps/kube-system/cilium/app/base-values.yaml > values.yaml
       - kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone | kubectl apply -f -
       - defer: rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/cilium/charts && rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/cilium/values.yaml
 

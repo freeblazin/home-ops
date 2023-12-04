@@ -90,11 +90,11 @@ tasks:
     vars:
       APP: &app-fail '{{ or .APP (fail "Missing `app` variable!") }}'
     cmds:
-      - cp -r {{.ROOT_DIR}}/kubernetes/templates {{.ROOT_DIR}}/kubernetes/deployments/apps/{{.app}}
+      - cp -r {{.ROOT_DIR}}/kubernetes/templates {{.ROOT_DIR}}/kubernetes/apps/{{.app}}
       # lowercase, used for resource names etc
-      - grep -lR 'APPNAME' {{.ROOT_DIR}}/kubernetes/deployments/apps/{{.app}}/ | xargs -I% sed -i 's/${APPNAME}/{{.app}}/g' %
+      - grep -lR 'APPNAME' {{.ROOT_DIR}}/kubernetes/apps/{{.app}}/ | xargs -I% sed -i 's/${APPNAME}/{{.app}}/g' %
       # uppercase, for variable substitution references e.g. ${APP_DNS_AUTHENTIK}
-      - grep -lR 'APPNAME' {{.ROOT_DIR}}/kubernetes/deployments/apps/{{.app}}/ | xargs -I% sed -i 's/_APPNAME}/_{{.app}}}/g;s/\(_{{.app}}}\)/\U\1/g' %
+      - grep -lR 'APPNAME' {{.ROOT_DIR}}/kubernetes/apps/{{.app}}/ | xargs -I% sed -i 's/_APPNAME}/_{{.app}}}/g;s/\(_{{.app}}}\)/\U\1/g' %
 
   iperf2:
     desc: Start a iperf2 server on one node, and iperf2 client on another node, to benchmark network performance.

@@ -6,5 +6,5 @@ metadata:
   name: 1-core-kubelet-csr-approver
   namespace: flux-system
 spec:
-  path: ./kubernetes/deployments/core/kubelet-csr-approver/app
+  path: ./kubernetes/apps/kube-system/kubelet-csr-approver/app
   dependsOn: []

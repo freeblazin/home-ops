@@ -8,7 +8,7 @@ metadata:
     kustomization.flux.home.arpa/name: "cilium"
     kustomization.flux.home.arpa/helmpatches: "false"
 spec:
-  path: ./kubernetes/deployments/core/_networking/cilium/app
+  path: ./kubernetes/apps/kube-system/cilium/app
   dependsOn: []
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -20,7 +20,7 @@ metadata:
     kustomization.flux.home.arpa/name: "cilium"
     kustomization.flux.home.arpa/helmpatches: "false"
 spec:
-  path: ./kubernetes/deployments/core/_networking/cilium/config
+  path: ./kubernetes/apps/kube-system/cilium/config
   dependsOn:
     - name: 1-core-1-networking-cilium-app
 #---
@@ -33,6 +33,6 @@ spec:
 #    kustomization.flux.home.arpa/name: "cilium"
 #    kustomization.flux.home.arpa/helmpatches: "false"
 #spec:
-#  path: ./kubernetes/deployments/core/_networking/cilium/netpols
+#  path: ./kubernetes/apps/kube-system/cilium/netpols
 #  dependsOn:
 #    - name: 1-core-1-networking-cilium-app
