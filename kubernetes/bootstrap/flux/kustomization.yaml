@@ -3,5 +3,3 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - github.com/fluxcd/flux2/manifests/install?ref=v2.1.2
-  # Apply App Template repository for app dependancy
-  - app-template-repo.yaml
