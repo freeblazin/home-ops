@@ -180,13 +180,18 @@ spec:
                   interval: 5m
                   maxHistory: 5
                   install:
+                    crds: CreateReplace
                     createNamespace: true
                     remediation:
                       retries: 5
+                    timeout: 10m
                   upgrade:
                     cleanupOnFail: true
+                    crds: CreateReplace
                     remediation:
+                      remediateLastFailure: true
                       retries: 5
+                      strategy: rollback
                   uninstall:
                     keepHistory: false
               target:
@@ -203,7 +208,7 @@ spec:
                   chart:
                     spec:
                       chart: app-template
-                      version: 1.2.1
+                      version: 2.3.0
                       sourceRef:
                         name: bjw-s
               target:

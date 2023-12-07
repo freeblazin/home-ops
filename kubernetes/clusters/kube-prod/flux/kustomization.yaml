@@ -5,6 +5,7 @@ resources:
   - ../vars/
   - flux-install.yaml
   - flux-repo.yaml
+  - app-template-repo.yaml
   - ../../../apps/kube-system/
   - ../../../apps/ingress-nginx/
   - ../../../apps/security-system/
