@@ -32,10 +32,10 @@ controller:
     limits:
       cpu: "3000m"
       memory: "2Gi"
-  metrics:
-    enabled: true
-    serviceMonitor:
-      enabled: true
-      namespace: "ingress-nginx"
-      namespaceSelector:
-        any: true
+#  metrics:
+#    enabled: true
+#    serviceMonitor:
+#      enabled: true
+#      namespace: "ingress-nginx"
+#      namespaceSelector:
+#        any: true
