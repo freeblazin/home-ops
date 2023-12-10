@@ -1610,7 +1610,7 @@ hubble:
           kubernetes.io/ingress.class: nginx-internal
         # kubernetes.io/tls-acme: "true"
         }
-      className: "nginx"
+      className: "nginx-internal"
       hosts:
         - "${DNS_APP_HUBBLE}"
       labels: {}

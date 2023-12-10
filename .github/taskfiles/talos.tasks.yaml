@@ -20,13 +20,13 @@ tasks:
         sh: talosctl version --client | grep 'Tag:' | grep -oP 'v[0-9]+.[0-9]+.[0-9]+' || echo 0
       KUBECTL_VERSION:
         sh: kubectl version --client | grep 'Client Version:' | grep -oP 'v[0-9]+.[0-9]+.[0-9]+' || echo 0
-      OP_VERSION:
+      OPCLI_VERSION:
         sh: op -v
     dotenv: ["{{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env"]
     status:
       - if [[ "{{.TALOSCTL_VERSION}}" == "$TALOS_VERSION" ]]; then exit 0; else exit 1; fi
       - if [[ "{{.KUBECTL_VERSION}}" == "$KUBERNETES_VERSION" ]]; then exit 0; else exit 1; fi
-      - if [[ "{{.OP_VERSION}}" == "$OP_VERSION" ]]; then exit 0; else exit 1; fi
+      - if [[ "v{{.OPCLI_VERSION}}" == "$OP_VERSION" ]]; then exit 0; else exit 1; fi
     cmds:
       # Install or update the clients to versions listed in env vars
       - if [[ "{{.TALOSCTL_VERSION}}" != "$TALOS_VERSION" ]]; then
@@ -43,9 +43,9 @@ tasks:
         Installing the matching client version"
         && task management:install-kubectl;
         fi
-      - if [[ "{{.OP_VERSION}}" != "$OP_VERSION" ]]; then
+      - if [[ "v{{.OPCLI_VERSION}}" != "$OP_VERSION" ]]; then
         echo -e "OnePassword Client version mismatch\n
-        Installed - {{.OP_VERSION}}\n
+        Installed - v{{.OPCLI_VERSION}}\n
         Required - $OP_VERSION\n
         Installing the matching client version"
         && task management:install-op;
@@ -320,7 +320,6 @@ tasks:
     desc: Generate Kubectl client configuration
     dir: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/talos"
     dotenv: ["{{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env"]
-    deps: [require-clients]
     cmds:
       - talosctl --talosconfig ./clusterconfig/talosconfig kubeconfig ~/.kube/config
       - |
