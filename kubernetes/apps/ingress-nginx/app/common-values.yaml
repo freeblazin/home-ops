@@ -8,8 +8,8 @@ controller:
   dnsPolicy: "ClusterFirstWithHostNet"
   publishService:
     enabled: true
-  extraArgs:
-    default-backend-service: "ingress/default-backend"
+#  extraArgs:
+#    default-backend-service: "ingress/default-backend"
   config:
     enable-brotli: "true"
     enable-real-ip: "true"
