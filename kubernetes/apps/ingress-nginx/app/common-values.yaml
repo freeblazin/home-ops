@@ -36,6 +36,6 @@ controller:
     enabled: true
     serviceMonitor:
       enabled: true
-      namespace: "ingress"
+      namespace: "ingress-nginx"
       namespaceSelector:
         any: true
