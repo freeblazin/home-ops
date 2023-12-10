@@ -1606,10 +1606,9 @@ hubble:
     ingress:
       enabled: true
       annotations:
-        {
-          kubernetes.io/ingress.class: nginx-internal
+        {}
+        # kubernetes.io/ingress.class: nginx-internal
         # kubernetes.io/tls-acme: "true"
-        }
       className: "nginx-internal"
       hosts:
         - "${DNS_APP_HUBBLE}"
