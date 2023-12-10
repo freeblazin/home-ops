@@ -1,6 +1,10 @@
 ---
 version: "3"
 
+vars:
+  VARS_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/vars.sops.env"
+  SECRETS_FILE: "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/secrets.sops.env"
+
 tasks:
   init-full:
     desc: Fully initialize management workstation apps and configurations from the ground up
@@ -10,6 +14,7 @@ tasks:
       - task: brew-management-apps
       - task: configure-shell
       - task: install-talosctl
+      - task: install-op
       - pre-commit install
 
   install-brew:
@@ -32,6 +37,8 @@ tasks:
         sops
         age
         helm
+        kubeconform
+        cilium-cli
         yamllint
         prettier
         markdownlint-cli
@@ -44,7 +51,9 @@ tasks:
   # Install Kubernetes Client (kubectl)
   install-kubectl:
     cmds:
-      - curl -L https://dl.k8s.io/release/$KUBERNETES_VERSION/bin/linux/amd64/kubectl -o kubectl
+      - task: :secrets:inject-command
+        vars:
+          CMD: "curl -L https://dl.k8s.io/release/$KUBERNETES_VERSION/bin/linux/amd64/kubectl -o kubectl"
       - sudo mv -f kubectl /usr/local/bin/kubectl
       - sudo chmod +x /usr/local/bin/kubectl
       - rm -f kubectl
@@ -52,10 +61,29 @@ tasks:
   # Install Talos Client (talosctl)
   install-talosctl:
     cmds:
-      - curl -L https://github.com/siderolabs/talos/releases/download/$TALOS_VERSION/talosctl-linux-amd64 -o talosctl
+      - task: :secrets:inject-command
+        vars:
+          CMD: "curl -L https://github.com/siderolabs/talos/releases/download/$TALOS_VERSION/talosctl-linux-amd64 -o talosctl"
       - sudo mv -f talosctl /usr/local/bin/talosctl
       - sudo chmod +x /usr/local/bin/talosctl
       - rm -f talosctl
+
+  # Install 1 Password Cli (op)
+  install-op:
+    cmds:
+      - defer: rm -rf op.zip op
+      - task: :secrets:inject-command
+        vars:
+          CMD: 'wget "https://cache.agilebits.com/dist/1P/op2/pkg/$OP_VERSION/op_linux_amd64_v2.23.0.zip" -O op.zip'
+      - unzip -d op op.zip
+      - sudo mv op/op /usr/local/bin
+      - if [ $(getent group onepassword-cli) ]; then
+        echo "onepassword-cli group exists.";
+        else
+        sudo groupadd -f onepassword-cli;
+        fi
+      - sudo chgrp onepassword-cli /usr/local/bin/op
+      - sudo chmod g+s /usr/local/bin/op
 
   # Tasks to configure the shell environment of the management workstation
   configure-shell:

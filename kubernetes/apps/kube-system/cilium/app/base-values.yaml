@@ -1606,16 +1606,17 @@ hubble:
     ingress:
       enabled: true
       annotations:
-        {}
-        # kubernetes.io/ingress.class: nginx
+        {
+          kubernetes.io/ingress.class: nginx-internal
         # kubernetes.io/tls-acme: "true"
+        }
       className: "nginx"
       hosts:
-        - "${APP_DNS_HUBBLE}"
+        - "${DNS_APP_HUBBLE}"
       labels: {}
       tls:
         - hosts:
-            - "${APP_DNS_HUBBLE}"
+            - "${DNS_APP_HUBBLE}"
 
 # -- Method to use for identity allocation (`crd` or `kvstore`).
 identityAllocationMode: "crd"

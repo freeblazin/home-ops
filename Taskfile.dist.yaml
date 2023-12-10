@@ -1,13 +1,17 @@
 ---
 version: "3"
 
+# Global Variables
 vars:
   PROJECT_DIR:
     sh: git rev-parse --show-toplevel
   SECRETS_DIR: "{{.PROJECT_DIR}}/secrets"
+  C: '{{.C | default "kube-prod"}}'
 
+# Taskfiles
 includes:
   management: .github/taskfiles/management-workstation.tasks.yaml
+  secrets: .github/taskfiles/secrets.tasks.yaml
   talos: .github/taskfiles/talos.tasks.yaml
   cluster: .github/taskfiles/cluster.tasks.yaml
   k8s: .github/taskfiles/k8s.tasks.yaml
@@ -16,6 +20,7 @@ includes:
   format: .github/taskfiles/format.tasks.yaml
   precommit: .github/taskfiles/pre-commit.tasks.yaml
 
+# Default Task - List all tasks
 default:
   silent: true
   cmds: ["task -l"]

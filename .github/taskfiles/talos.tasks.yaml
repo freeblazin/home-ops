@@ -2,7 +2,7 @@
 version: "3"
 
 vars:
-  C: '{{.C | default "kube-prod"}}'
+  #C: '{{.C | default "kube-prod"}}'
   APPLY: '{{.APPLY | default "false"}}'
   TASK_ITEMS:
     sh: '(task -a | grep "talos:" | cut -d: -f2)'
@@ -20,25 +20,35 @@ tasks:
         sh: talosctl version --client | grep 'Tag:' | grep -oP 'v[0-9]+.[0-9]+.[0-9]+' || echo 0
       KUBECTL_VERSION:
         sh: kubectl version --client | grep 'Client Version:' | grep -oP 'v[0-9]+.[0-9]+.[0-9]+' || echo 0
+      OP_VERSION:
+        sh: op -v
     dotenv: ["{{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env"]
     status:
       - if [[ "{{.TALOSCTL_VERSION}}" == "$TALOS_VERSION" ]]; then exit 0; else exit 1; fi
       - if [[ "{{.KUBECTL_VERSION}}" == "$KUBERNETES_VERSION" ]]; then exit 0; else exit 1; fi
+      - if [[ "{{.OP_VERSION}}" == "$OP_VERSION" ]]; then exit 0; else exit 1; fi
     cmds:
-      # Warn user and exit task sequence
-      - if [[ "{{.TALOSCTL_VERSION}}" != "$TALOS_VERSION" ]];
-        then echo -e "Talos Client version mismatch\n
+      # Install or update the clients to versions listed in env vars
+      - if [[ "{{.TALOSCTL_VERSION}}" != "$TALOS_VERSION" ]]; then
+        echo -e "Talos Client version mismatch\n
         Installed - {{.TALOSCTL_VERSION}}\n
         Required - $TALOS_VERSION\n
         Installing the matching client version"
         && task management:install-talosctl;
         fi
-      - if [[ "{{.KUBECTL_VERSION}}" != "$KUBERNETES_VERSION" ]];
-        then echo -e "Kubernetes Client version mismatch\n
+      - if [[ "{{.KUBECTL_VERSION}}" != "$KUBERNETES_VERSION" ]]; then
+        echo -e "Kubernetes Client version mismatch\n
         Installed - {{.KUBECTL_VERSION}}\n
         Required - $KUBERNETES_VERSION\n
         Installing the matching client version"
         && task management:install-kubectl;
+        fi
+      - if [[ "{{.OP_VERSION}}" != "$OP_VERSION" ]]; then
+        echo -e "OnePassword Client version mismatch\n
+        Installed - {{.OP_VERSION}}\n
+        Required - $OP_VERSION\n
+        Installing the matching client version"
+        && task management:install-op;
         fi
 
   init-full:
@@ -331,10 +341,10 @@ tasks:
     vars:
       C: '{{ or .C (fail "Missing C environment variable for cluster!") }}'
     cmds:
+      - defer: rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver/charts && rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver/values.yaml
       - envsubst < {{.ROOT_DIR}}/kubernetes/apps/kube-system/kubelet-csr-approver/app/values.yaml > values.yaml
       - kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone > csr-approver.yaml
       #- kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone | kubectl apply -f -
-      - defer: rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver/charts && rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver/values.yaml
 
   # Bootstrap Cillium by creating local chart for Talos
   cilium-bootstrap:
@@ -345,12 +355,12 @@ tasks:
     vars:
       C: '{{ or .C (fail "Missing C environment variable for cluster!") }}'
     cmds:
+      - defer: rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/cilium/charts && rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/cilium/values.yaml
       - kubectl delete configmap -n kube-system cilium-config || true
       - kubectl delete daemonset -n kube-system cilium || true
       - kubectl delete deployment -n kube-system cilium-operator || true
       - envsubst < {{.ROOT_DIR}}/kubernetes/apps/kube-system/cilium/app/base-values.yaml > values.yaml
       - kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone | kubectl apply -f -
-      - defer: rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/cilium/charts && rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/cilium/values.yaml
 
   # Generate secret for vmware tools daemonset authentication
   # https://www.talos.dev/v1.5/talos-guides/install/virtualized-platforms/vmware/#configure-talos-vmtoolsd
@@ -385,10 +395,10 @@ tasks:
       CLI_ARGS: '{{.CLI_ARGS | default "list-tasks"}}'
       C: '{{ or .C (fail "\n\nERROR ->  Missing CLUSTER environment variable!") }}'
     cmds:
+      - defer: {task: cleanup}
       - if [[ "{{.TASK_ITEMS}}" =~ \b{{.CLI_ARGS}}\b ]];
-        then task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml talos:inject-env C={{.C}};
+        then task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml secrets:decrypt-env C={{.C}};
         fi
-      - defer: {task: cleanup-env}
       - if [[ "{{.TASK_ITEMS}}" =~ \b{{.CLI_ARGS}}\b ]];
         then C={{.C}} task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml talos:{{.CLI_ARGS}};
         else task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml talos:list-tasks;
@@ -405,31 +415,8 @@ tasks:
       - for: {var: TASK_ITEMS}
         cmd: echo -- {{.ITEM}}
 
-  # Inject encrypted variables to a temp .env file for consumption by taskfile dotenv
-  inject-env:
-    desc: Extract encrypted variables from SOPS config file to be used as .env for tasks
-    vars:
-      C: '{{ or .C (fail "\n\nERROR ->  Missing CLUSTER environment variable!") }}'
-    status:
-      - test -f {{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env
-    cmds:
-      - sops exec-file "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/vars.sops.env" 'op inject -i {}' >> {{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env
-      - sops exec-file "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/secrets.sops.env" 'op inject -i {}' >> {{.SECRETS_DIR}}/{{.C}}.vars.unencrypted.env
-
-  # Injection of decrypted secrets directly into talos task
-  inject-task:
-    vars:
-      CLI_ARGS: '{{.CLI_ARGS | default "list"}}'
-      C: '{{ or .C (fail "\n\nERROR ->  Missing CLUSTER environment variable!") }}'
-    cmds:
-      - sops exec-file "{{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/vars.sops.env" 'op run --env-file={} -- task --taskfile {{.ROOT_DIR}}/Taskfile.dist.yaml talos:{{.CLI_ARGS}} C={{.C}}'
-
   # Cleanup unencrypted temp .env files
-  cleanup-env:
-    desc: Extract encrypted variables from SOPS config file to be used as .env for tasks
-    preconditions:
-      - sh: "[ -f {{.SECRETS_DIR}}/*.unencrypted.env ]"
-        msg: "Nothing to cleanup"
+  cleanup:
     cmds:
-      # Remove all unencrypted temp .env files from secrets directory
-      - rm -rf {{.SECRETS_DIR}}/*.unencrypted.env
+      # Call secrets cleanup task
+      - task: :secrets:cleanup-secrets

@@ -1,11 +1,10 @@
 ---
 ignore: |
   .vscode/
-  **/gotk-components.yaml
-  ansible/
   *.sops.*
-  gotk-components.yaml
-  **/infrastructure/talos/cluster-0/clusterconfig/
+  **/talos/clusterconfig/
+  base-values.yaml
+  csr-approver.yaml
 extends: default
 rules:
   truthy:
