@@ -112,7 +112,7 @@ spec:
         enabled: true
         className: nginx-internal
         annotations:
-          hajimari.io/enable: "false"
+        #  hajimari.io/enable: "false"
         hosts:
           - host: &host "{{ .Release.Name }}.${DNS_HOME_ROOT}"
             paths:
