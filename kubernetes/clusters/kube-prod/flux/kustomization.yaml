@@ -8,4 +8,4 @@ resources:
   - app-template-repo.yaml
   - ../../../apps/kube-system/
   - ../../../apps/ingress-nginx/
-#  - ../../../apps/security-system/
+  - ../../../apps/security-system/
