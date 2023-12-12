@@ -342,8 +342,12 @@ tasks:
     cmds:
       - defer: rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver/charts && rm -rf {{.ROOT_DIR}}/kubernetes/bootstrap/csr-approver/values.yaml
       - envsubst < {{.ROOT_DIR}}/kubernetes/apps/kube-system/kubelet-csr-approver/app/values.yaml > values.yaml
-      - kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone > csr-approver.yaml
-      #- kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone | kubectl apply -f -
+      - kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone > csr-approver-new.yaml
+      # Replace manifest if new changes, discard if same
+      - if diff -q csr-approver-new.yaml csr-approver.yaml &>/dev/null;
+        then rm csr-approver-new.yaml;
+        else mv -f csr-approver-new.yaml csr-approver.yaml;
+        fi
 
   # Bootstrap Cillium by creating local chart for Talos
   cilium-bootstrap:

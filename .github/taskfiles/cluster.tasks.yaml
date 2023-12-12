@@ -33,6 +33,9 @@ tasks:
       - task: apply-resources
         vars:
           APPLY: true
+      - git add {{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/
+      - git commit -m "Update {{.C}} variables"
+      - git push
 
   init-config:
     aliases: [initcfg]
@@ -59,7 +62,7 @@ tasks:
       SECRET_TEMPLATE: "{{.ROOT_DIR}}/kubernetes/bootstrap/config/secret.tmpl.yaml"
       SOPS_DIR:
         sh: echo {{.SOPS_FILE}} | xargs dirname
-      SED_COMMAND: 's/\=/: \x27/;s/$/\x27/' # Command to surround with single quotes 's/\=/: \x27/g;s/$/\x27/'
+      SED_COMMAND: 's/\=/: \x27/;s/$/\x27/' # Command to surround with single quotes
     cmds:
       - cat {{.SOPS_FILE}} > {{.SOPS_DIR}}/sops.unencrypted.yaml
       - op inject -i {{.SOPS_DIR}}/sops.unencrypted.yaml -o {{.SOPS_DIR}}/vars.unencrypted.yaml
