@@ -61,7 +61,8 @@ tasks:
         sh: echo {{.SOPS_FILE}} | xargs dirname
       SED_COMMAND: 's/\=/: \x27/g;s/$/\x27/' # Command to surround with single quotes 's/\=/: \x27/g;s/$/\x27/'
     cmds:
-      - cat {{.SOPS_FILE}} > {{.SOPS_DIR}}/vars.unencrypted.yaml
+      - cat {{.SOPS_FILE}} > {{.SOPS_DIR}}/sops.unencrypted.yaml
+      - op inject -i {{.SOPS_DIR}}/sops.unencrypted.yaml -o {{.SOPS_DIR}}/vars.unencrypted.yaml
       - sed -i '{{.SED_COMMAND}}' {{.SOPS_DIR}}/vars.unencrypted.yaml
       - yq eval-all 'select(fileIndex==0).stringData = select(fileIndex==1) | select(fileIndex==0)' {{.SECRET_TEMPLATE}} {{.SOPS_DIR}}/vars.unencrypted.yaml > {{.SOPS_DIR}}/{{.C}}-{{.NAME}}.unencrypted.yaml
       - CLUSTER={{.C}} NAME={{.NAME}} yq -i '(.. | select(tag == "!!str")) |= envsubst' {{.SOPS_DIR}}/{{.C}}-{{.NAME}}.unencrypted.yaml
