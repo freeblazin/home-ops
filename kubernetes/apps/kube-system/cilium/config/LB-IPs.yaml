@@ -5,4 +5,4 @@ metadata:
   name: main-pool
 spec:
   cidrs:
-    - cidr: "${IP_LB_CIDR}"
+    - cidr: "${IP_CIDR_K8S_NODE}"

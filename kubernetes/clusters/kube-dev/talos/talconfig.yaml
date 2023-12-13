@@ -16,10 +16,10 @@ additionalApiServerCertSans:
   - ${DNS_CONTROLPLANE_FQDN}
 
 clusterPodNets:
-  - ${IP_POD_CIDR_V4}
+  - ${IP_CIDR_K8S_POD}
 
 clusterSvcNets:
-  - ${IP_SVC_CIDR_V4}
+  - ${IP_CIDR_K8S_SVC}
 
 nodes:
   - hostname: kube-dev-control-01
@@ -50,13 +50,13 @@ nodes:
           - ${IP_CONTROL_03}/26
 
   - hostname: kube-dev-worker-01
-    ipAddress: ${IP_WORKER01}
+    ipAddress: ${IP_WORKER_01}
     controlPlane: false
     installDisk: /dev/sda
     networkInterfaces:
       - interface: eth0
         addresses:
-          - ${IP_WORKER01}/26
+          - ${IP_WORKER_01}/26
 
 patches:
   - |-
@@ -80,7 +80,7 @@ patches:
       path: /machine/network/interfaces/0/routes
       value:
         - network: 0.0.0.0/0
-          gateway: ${IP_GATEWAY_K8S_VLAN}
+          gateway: ${IP_GATEWAY_K8S_NODE}
 
 controlPlane:
   patches:

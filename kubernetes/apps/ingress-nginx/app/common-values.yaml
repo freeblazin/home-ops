@@ -8,13 +8,13 @@ controller:
   dnsPolicy: "ClusterFirstWithHostNet"
   publishService:
     enabled: true
-#  extraArgs:
-#    default-backend-service: "ingress/default-backend"
+  #  extraArgs:
+  #    default-backend-service: "ingress/default-backend"
   config:
     enable-brotli: "true"
     enable-real-ip: "true"
     use-forwarded-headers: "true"
-    proxy-real-ip-cidr: "${IP_POD_CIDR_V4}, 127.0.0.0/8"
+    proxy-real-ip-cidr: "${IP_CIDR_K8S_POD}, 127.0.0.0/8"
     disable-access-log: "false"
     log-format-escape-json: "true"
     # hardening

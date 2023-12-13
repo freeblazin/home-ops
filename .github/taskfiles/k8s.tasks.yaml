@@ -13,6 +13,12 @@ tasks:
     cmds:
       - kubectl run netshoot --rm -i --tty --image nicolaka/netshoot
 
+  validate-manifests:
+    aliases: [validate]
+    dir: "{{.ROOT_DIR}}"
+    cmds:
+      - ./scripts/validate.sh
+
   race-ns-pod-security:
     aliases: [rnsps]
     desc: While true loop labelling a given namespace with Pod Security labels, if external source creates namespace (e.g. Azure Arc's Helm apply with `--create-namespace`)
