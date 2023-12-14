@@ -330,7 +330,7 @@ tasks:
     desc: Approve any waiting CSR requests
     deps: [require-clients]
     cmds:
-      - kubectl certificate approve $(kubectl get csr --sort-by=.metadata.creationTimestamp | grep Pending | awk '{print $1}')
+      - kubectl certificate approve $(kubectl get csr --sort-by=.metadata.creationTimestamp | grep Pending | awk '{print $1}') || true
 
   # Bootstrap CSR Approver by creating local chart for Talos
   csr-bootstrap:
