@@ -5,6 +5,7 @@ metadata:
   name: apps-network-system-cloudflared
   namespace: flux-system
 spec:
+  targetNamespace: network-system
   path: ./kubernetes/apps/network-system/cloudflared/app
   dependsOn:
     - name: 1-core-ingress-nginx-app
