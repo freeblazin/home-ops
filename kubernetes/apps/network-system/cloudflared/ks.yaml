@@ -1,0 +1,11 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps-network-system-cloudflared
+  namespace: flux-system
+spec:
+  path: ./kubernetes/apps/network-system/cloudflared/app
+  dependsOn:
+    - name: 1-core-ingress-nginx-app
+    - name: core-external-secrets-stores

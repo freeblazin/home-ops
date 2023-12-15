@@ -9,3 +9,4 @@ resources:
   - ../../../apps/kube-system/
   - ../../../apps/ingress-nginx/
   - ../../../apps/security-system/
+  - ../../../apps/network-system/
