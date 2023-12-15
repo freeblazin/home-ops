@@ -12,5 +12,5 @@ resources:
   #- netpol.yaml
   #- default-backend.yaml
   - hr-internal.yaml
-  #- hr-external.yaml
+  - hr-external.yaml
   #- hr-public.yaml
