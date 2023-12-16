@@ -2,19 +2,19 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: core-external-secrets-app
+  name: apps-security-system-external-secrets
   namespace: flux-system
 spec:
   path: ./kubernetes/apps/security-system/external-secrets/app
   dependsOn:
-    - name: core-onepassword-connect-app
+    - name: apps-security-system-onepassword-connect
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: core-external-secrets-stores
+  name: apps-security-system-external-secrets-stores
   namespace: flux-system
 spec:
   path: ./kubernetes/apps/security-system/external-secrets/stores
   dependsOn:
-    - name: core-external-secrets-app
+    - name: apps-security-system-external-secrets

@@ -8,4 +8,4 @@ spec:
   targetNamespace: network-system
   path: ./kubernetes/apps/network-system/echo-server/app
   dependsOn:
-    - name: 1-core-ingress-nginx-app
+    - name: apps-ingress-nginx

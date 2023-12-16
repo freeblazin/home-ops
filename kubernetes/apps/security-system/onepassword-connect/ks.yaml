@@ -2,7 +2,7 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: core-onepassword-connect-app
+  name: apps-security-system-onepassword-connect
   namespace: flux-system
 spec:
   path: ./kubernetes/apps/security-system/onepassword-connect/app

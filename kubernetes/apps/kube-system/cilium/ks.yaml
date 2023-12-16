@@ -2,7 +2,7 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: 1-core-1-networking-cilium-app
+  name: apps-kube-system-cilium
   namespace: flux-system
   labels:
     kustomization.flux.home.arpa/name: "cilium"
@@ -14,7 +14,7 @@ spec:
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: 1-core-1-networking-cilium-config
+  name: apps-kube-system-cilium-config
   namespace: flux-system
   labels:
     kustomization.flux.home.arpa/name: "cilium"
@@ -22,12 +22,12 @@ metadata:
 spec:
   path: ./kubernetes/apps/kube-system/cilium/config
   dependsOn:
-    - name: 1-core-1-networking-cilium-app
+    - name: apps-kube-system-cilium
 # ---
 # apiVersion: kustomize.toolkit.fluxcd.io/v1
 # kind: Kustomization
 # metadata:
-#   name: 1-core-1-networking-cilium-netpols
+#   name: apps-kube-system-cilium-netpols
 #   namespace: flux-system
 #   labels:
 #     kustomization.flux.home.arpa/name: "cilium"
@@ -35,4 +35,4 @@ spec:
 # spec:
 #   path: ./kubernetes/apps/kube-system/cilium/netpols
 #   dependsOn:
-#     - name: 1-core-1-networking-cilium-app
+#     - name: apps-kube-system-cilium

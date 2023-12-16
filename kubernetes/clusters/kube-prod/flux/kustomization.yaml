@@ -10,3 +10,4 @@ resources:
   - ../../../apps/ingress-nginx/
   - ../../../apps/security-system/
   - ../../../apps/network-system/
+  - ../../../apps/cert-manager/
