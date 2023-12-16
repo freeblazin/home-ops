@@ -11,7 +11,8 @@ tasks:
   start-netshoot:
     aliases: [ns]
     cmds:
-      - kubectl run netshoot --rm -i --tty --image nicolaka/netshoot
+      - kubectl delete -n network-system pod/netshoot || true
+      - kubectl run netshoot --rm -i --tty --image nicolaka/netshoot -n network-system
 
   validate-manifests:
     aliases: [validate]

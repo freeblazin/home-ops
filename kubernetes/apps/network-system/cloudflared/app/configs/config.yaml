@@ -1,8 +1,13 @@
 ---
 ingress:
-  - hostname: "*.${DNS_PUBLIC_ROOT}"
-    service: https://nginx-external-controller.ingress-nginx.svc.cluster.local:443
+  - hostname: "${DNS_PUBLIC_ROOT}"
+    service: http://nginx-external-controller.ingress-nginx.svc.cluster.local
     originRequest:
-      originServerName: "ingress.${DNS_PUBLIC_ROOT}"
+      originServerName: "external.${DNS_PUBLIC_ROOT}"
+  
+  - hostname: "*.${DNS_PUBLIC_ROOT}"
+    service: http://nginx-external-controller.ingress-nginx.svc.cluster.local
+    originRequest:
+      originServerName: "external.${DNS_PUBLIC_ROOT}"
 
   - service: http_status:404
