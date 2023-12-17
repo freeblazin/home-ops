@@ -15,7 +15,7 @@ spec:
             email: *email
             apiTokenSecretRef:
               name: cloudflare-secret
-              key: CLOUDFLARE_API_TOKEN
+              key: CLOUDFLARE_API_KEY
         selector:
           dnsZones:
             - ${DNS_PUBLIC_ROOT}
@@ -36,7 +36,7 @@ spec:
             email: *email
             apiTokenSecretRef:
               name: cloudflare-secret
-              key: CLOUDFLARE_API_TOKEN
+              key: CLOUDFLARE_API_KEY
         selector:
           dnsZones:
             - ${DNS_PUBLIC_ROOT}
