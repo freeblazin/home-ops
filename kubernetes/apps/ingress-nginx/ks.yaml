@@ -9,4 +9,5 @@ metadata:
 spec:
   targetNamespace: ingress-nginx
   path: ./kubernetes/apps/ingress-nginx/app
-  dependsOn: []
+  dependsOn:
+    - name: apps-cert-manager-issuers

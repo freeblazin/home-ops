@@ -8,5 +8,4 @@ spec:
   targetNamespace: network-system
   path: ./kubernetes/apps/network-system/cloudflared/app
   dependsOn:
-    - name: apps-ingress-nginx
     - name: apps-security-system-external-secrets-stores
