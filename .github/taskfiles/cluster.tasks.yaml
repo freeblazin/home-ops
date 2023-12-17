@@ -33,9 +33,9 @@ tasks:
       - task: apply-resources
         vars:
           APPLY: true
-      - git add {{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/
-      - git commit -m "Update {{.C}} variables"
-      - git push
+      #- git add {{.ROOT_DIR}}/kubernetes/clusters/{{.C}}/vars/
+      #- git commit -m "Update {{.C}} variables"
+      #- git push
 
   init-config:
     aliases: [initcfg]
