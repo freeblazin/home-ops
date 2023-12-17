@@ -4,7 +4,7 @@ kind: Certificate
 metadata:
   name: wildcard
 spec:
-  secretName: wildcard-tls-${DNS_PUBLIC_ROOT}
+  secretName: wildcard-tls
   issuerRef:
     name: letsencrypt-staging
     kind: ClusterIssuer
