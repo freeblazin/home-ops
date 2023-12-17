@@ -14,3 +14,4 @@ resources:
   - hr-internal.yaml
   - hr-external.yaml
   #- hr-public.yaml
+  - certificate.yaml

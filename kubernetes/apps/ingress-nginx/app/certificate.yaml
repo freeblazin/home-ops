@@ -1,0 +1,14 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard
+spec:
+  secretName: wildcard-tls-${DNS_PUBLIC_ROOT}
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  commonName: ${DNS_PUBLIC_ROOT}
+  dnsNames:
+    - ${DNS_PUBLIC_ROOT}
+    - "*.${DNS_PUBLIC_ROOT}"
